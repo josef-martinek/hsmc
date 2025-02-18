@@ -118,9 +118,9 @@ class toy_problem_solver(SolverInterface):
 
         forward_operator = coeff * self.matrix__(a,b,c,d)
         
+        solver_noise = sqrt(self._solverNoiseVar)*standard_normal(self.dataShape_[1])
         for n in range(self.dataShape_[0]):
-            #evaluation[n, :] = np.dot(forward_operator,self.initCond_[n,:]) + sqrt(self._solverNoiseVar)*standard_normal(self.dataShape_[1])
-            evaluation[n, :] = np.dot(forward_operator,self.initCond_[n,:]) + coeff * sqrt(self._solverNoiseVar)*standard_normal(self.dataShape_[1])
+            evaluation[n, :] = np.dot(forward_operator,self.initCond_[n,:]) + solver_noise
 
         self.evaluation_ = evaluation
 

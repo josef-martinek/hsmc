@@ -36,16 +36,16 @@ config_inference = {
     'b': 0,
     'c': 0,
     'd': 1,
-    'nData': 10,
+    'nData': 1,
     'dataDim': 2,
-    'solver_noise': 0.2,
+    'solver_noise': 1,
     }
 config_truth = {
     'a': 1,
     'b': 0,
     'c': 0,
     'd': 1,
-    'nData': 10,
+    'nData': 1,
     'dataDim': 2,
     'solver_noise': 0,
     }
@@ -72,7 +72,7 @@ print("synthetic data generated")
 # start with a prior centred around the true parameter coefficient
 priorMean = setup.toy_problem_parameter.from_coefficient(np.zeros(1))
 
-priorMargVar = 1.4
+priorMargVar = 2
 priorCovariance = IIDCovarianceMatrix(parameterDim, priorMargVar)
 
 # set up prior
