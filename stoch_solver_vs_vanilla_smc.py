@@ -4,10 +4,10 @@ import scipy.stats as stats
 import time
 import matplotlib.pyplot as plt
 import seaborn as sb
-from particles.particles import distributions as dists
-from particles.particles import smc_samplers as ssp
+from particles import distributions as dists
+from particles import smc_samplers as ssp
 from core.samplers import TemperingAdaptNsamp2
-from particles.particles.core import SMC
+from particles.core import SMC
 from problem_parameters import MRWConfig as SamplerConfig
 import problem_parameters as params
 import utils.logging as logg

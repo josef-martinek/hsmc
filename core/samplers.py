@@ -1,4 +1,4 @@
-from particles.particles.smc_samplers import AdaptiveTempering, next_annealing_epn
+from particles.smc_samplers import AdaptiveTempering, next_annealing_epn
 import numpy as np
 
 class TemperingAdaptNsamp(AdaptiveTempering):

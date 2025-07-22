@@ -1,8 +1,8 @@
 import numpy as np
 import scipy.stats as stats
-from particles.particles import distributions as dists
-from particles.particles import smc_samplers as ssp
-from particles.particles.core import SMC
+from particles import distributions as dists
+from particles import smc_samplers as ssp
+from particles.core import SMC
 from problem_setup.toy_problem.problem_parameters import MRWConfig as SamplerConfig
 import problem_setup.toy_problem.problem_parameters as params
 import utils.logging as logg
