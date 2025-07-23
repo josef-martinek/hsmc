@@ -1,6 +1,8 @@
 import subprocess
 import os
 import sys
+import shutil
+import inspect
 
 
 def export_conda_env(target_folder, env_name=None):
@@ -79,3 +81,21 @@ def export_git_commit(target_folder, filename="git_commit.txt"):
     except subprocess.CalledProcessError as e:
         print("Error retrieving git commit hash:", e)
         sys.exit(1)
+
+
+def copy_problem_setup(module, results_folder, new_name=None):
+    # Find the source .py file for the imported module
+    src = inspect.getsourcefile(module) or module.__file__
+    if src is None:
+        raise RuntimeError("Cannot locate source file for module.")
+
+    # Make sure destination exists
+    os.makedirs(results_folder, exist_ok=True)
+
+    # Destination path (optional rename)
+    dst_name = new_name if new_name is not None else os.path.basename(src)
+    dst = os.path.join(results_folder, dst_name)
+
+    # Copy (copy2 preserves timestamp/metadata)
+    shutil.copy2(src, dst)
+    return dst
