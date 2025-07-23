@@ -5,6 +5,7 @@ from particles import smc_samplers as ssp
 from particles.core import SMC
 from problem_setup.toy_problem.problem_parameters import MRWConfig as SamplerConfig
 import problem_setup.toy_problem.problem_parameters as params
+from problem_setup.toy_problem.likelihood_model import IPModelExact, IPModelInexactFixed
 import utils.logging as logg
 from matplotlib import pyplot as plt
 import seaborn as sb
@@ -32,7 +33,7 @@ if __name__ == "__main__":
     observed_data = exact_fw_op @ (sc.ground_truth_par * np.ones((exact_fw_op.shape[1],1))) + np.random.normal(loc=0., scale=np.sqrt(sc.data_noise_var), size=exact_fw_op.shape)
 
     exact_model = IPModelExact(fw_operator=exact_fw_op, prior=prior, data_noise_var=sc.data_noise_var, data=observed_data)
-    inexact_model = IPModelInexact(fw_model=params.FwProblemInexact(n_particles=n_samples), prior=prior, data_noise_var=sc.data_noise_var, data=observed_data)
+    inexact_model = IPModelInexactFixed(fw_model=params.FwProblemInexact(n_particles=n_samples), prior=prior, data_noise_var=sc.data_noise_var, data=observed_data)
 
     # Instantiate the mode
 

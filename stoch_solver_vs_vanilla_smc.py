@@ -8,11 +8,10 @@ from particles import distributions as dists
 from particles import smc_samplers as ssp
 from core.samplers import TemperingAdaptNsamp2
 from particles.core import SMC
-from problem_parameters import MRWConfig as SamplerConfig
-import problem_parameters as params
+from problem_setup.toy_problem.problem_parameters import MRWConfig as SamplerConfig
+import problem_setup.toy_problem.problem_parameters as params
 import utils.logging as logg
-from smc_stoch_solver_tempering import IPModelExact, IPModelInexact
-from smc_linear_bip import IPModelInexact as IPModelInexactFixed
+from problem_setup.toy_problem.likelihood_model import IPModelExact, IPModelInexact, IPModelInexactFixed
 import shutil
 
 logger = logg.create_custom_logger("smc_logger")
