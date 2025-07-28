@@ -8,10 +8,10 @@ from particles import distributions as dists
 from particles import smc_samplers as ssp
 from core.samplers import TempAdaptNsampNoRew
 from particles.core import SMC
-from problem_setup.toy_problem.problem_parameters import MRWConfig as SamplerConfig
-import problem_setup.toy_problem.problem_parameters as params
+from problem_setup.heat_eq_ip.problem_parameters import SamplerConfig as sc
+from problem_setup.heat_eq_ip.likelihood_model import IPModelExact, IPModelInexactFix, IPModelInexactAdapt
+from problem_setup.heat_eq_ip.likelihood_model import HeatEqModel as ModelExact
 import utils.logging as logging
-from problem_setup.toy_problem.likelihood_model import IPModelExact, IPModelInexact, IPModelInexactFixed
 import shutil
 
 logger = logging.create_custom_logger("smc_logger")
@@ -24,42 +24,13 @@ os.makedirs(results_folder, exist_ok=True)  # Create folder if it doesn't exist
 # SMC settings
 Nmin = 100
 ar_tol = 0.35
-N_runs = 10
+N_runs = 2
 len_chain = 10
 
-#ESS_rmin_seq = [0.9, 0.95, 0.975]
-#ESS_rmin_seq = [0.9, 0.9625, 0.9859375, 0.9947265625]
-#ESS_rmin_seq = [0.9, 0.99, 0.999]
-#ESS_rmin_seq = np.logspace(start=np.log10(0.9), stop=np.log10(0.999), num=6, endpoint=True, base=10)
-
-# num_points = 4
-# epsilons = np.logspace(-1, -3, num=num_points)
-# ESS_rmin_seq = 1 - epsilons
-# print(f"ESS_min sequence is: {ESS_rmin_seq}")
-ESS_rmin_seq = [0.7]
-
-# Problem setup
-sc = SamplerConfig()
-parameterDim = len(sc.init_state)
+gt = sc.ground_truth_par
 
 prior = dists.StructDist({'param': dists.Normal(loc=0., scale=sc.prior_marg_var)})
-exact_fw_op = params.FwProblemExact().exact_fw_operator
-
-# Generate synthetic data
-observed_data = exact_fw_op @ (sc.ground_truth_par * np.ones((exact_fw_op.shape[1], 1))) + \
-                np.random.normal(loc=0., scale=np.sqrt(sc.data_noise_var), size=exact_fw_op.shape)
-
-# Define models
-exact_model = IPModelExact(fw_operator=exact_fw_op, prior=prior, data_noise_var=sc.data_noise_var, data=observed_data)
-inexact_model = IPModelInexact(fw_model=params.FwProblemInexactAdapt(), prior=prior, data_noise_var=sc.data_noise_var, data=observed_data)
-
-# Compute true posterior parameters
-A = exact_fw_op
-Gamma_inv = np.linalg.inv(sc.data_noise_var * np.eye(A.shape[0]))  # Inverse noise covariance
-C0_inv = np.linalg.inv(np.eye(parameterDim) * sc.prior_marg_var)  # Inverse prior covariance
-C_inv = A.T @ Gamma_inv @ A + C0_inv
-C = np.linalg.inv(C_inv)  # Posterior covariance
-m = C @ (A.T @ Gamma_inv @ observed_data + C0_inv @ np.zeros(parameterDim))  # Posterior mean
+true_sol = ModelExact.exact_binned_sol(sc.ground_truth_par)
 
 # Initialize storage
 avg_runtimes_adapt = []
@@ -71,8 +42,15 @@ mse_stddev_fixed = []
 avg_nsamps_adapt = []
 avg_n_temp_steps_adapt = []
 
-# Run SMC for different ESS_rmin values
-for ESS_rmin in ESS_rmin_seq:
+# Run SMC for different noise var
+for data_noise_var in sc.data_noise_var_seq:
+    observed_data = true_sol + np.random.normal(loc=0., 
+                                            scale=np.sqrt(data_noise_var), 
+                                            size=true_sol.shape)
+
+    model_inex_adapt = IPModelInexactAdapt(prior=prior,
+                                        data_noise_cov=data_noise_var,
+                                        data=observed_data)
     runtimes_fixed = []
     runtimes_adapt = []
     mse_per_run_adapt = []
@@ -82,10 +60,14 @@ for ESS_rmin in ESS_rmin_seq:
     print_time_start = time.time()
 
     for _ in range(N_runs):
-        tempering = TempAdaptNsampNoRew(Nmin=Nmin, ar_tol=ar_tol, 
-                                                model=inexact_model, wastefree=False, len_chain=len_chain, ESSrmin=ESS_rmin)
+        tempering = TempAdaptNsampNoRew(Nmin=Nmin, 
+                                        ar_tol=ar_tol, 
+                                        model=model_inex_adapt, 
+                                        wastefree=False, 
+                                        len_chain=len_chain, 
+                                        ESSrmin=sc.ESS_rmin)
         
-        my_temp_alg = SMC(fk=tempering, N=1000, ESSrmin=1., verbose=False)
+        my_temp_alg = SMC(fk=tempering, N=100, ESSrmin=1., verbose=False)
         start_time = time.time()
         my_temp_alg.run()
         my_temp_alg.resample_move()
@@ -94,23 +76,22 @@ for ESS_rmin in ESS_rmin_seq:
 
         # Compute posterior mean from SMC samples
         exponents = my_temp_alg.X.shared['exponents']
-        #estimated_mean = np.average(my_temp_alg.X.theta['param'], weights=my_temp_alg.W, axis=0)
         estimated_mean = np.average(my_temp_alg.X.theta['param'], axis=0)
 
         # Compute squared error
-        mse_per_run_adapt.append(np.linalg.norm(estimated_mean - m) ** 2)
+        mse_per_run_adapt.append(np.linalg.norm(estimated_mean - gt) ** 2)
         number_of_fw_solver_samples_adapt.append(tempering.solver_nsamp[-1])
         n_temp_steps_adapt.append(my_temp_alg.t)
 
-        inexact_model_fixed = IPModelInexactFixed(fw_model=params.FwProblemInexact(n_particles=tempering.solver_nsamp[-1]), 
-                                                  prior=prior, 
-                                                  data_noise_var=sc.data_noise_var, 
-                                                  data=observed_data)
-        tempering_fixed = ssp.Tempering(model=inexact_model_fixed,
+        model_inex_fix = IPModelInexactFix(prior=prior, 
+                                   data_noise_cov=data_noise_var, 
+                                   data=observed_data,
+                                   nsamp=tempering.solver_nsamp[-1])
+        tempering_fixed = ssp.Tempering(model=model_inex_fix,
                                         wastefree=False,
                                         exponents=exponents[1:],
                                         len_chain=len_chain)
-        temp_fixed_alg = SMC(fk=tempering_fixed, N=1000, ESSrmin=1., verbose=False)
+        temp_fixed_alg = SMC(fk=tempering_fixed, N=100, ESSrmin=1., verbose=False)
         start_time = time.time()
         temp_fixed_alg.run()
         temp_fixed_alg.resample_move()
@@ -120,12 +101,12 @@ for ESS_rmin in ESS_rmin_seq:
         #estimated_mean = np.average(temp_fixed_alg.X.theta['param'], weights=temp_fixed_alg.W, axis=0)
         estimated_mean = np.average(temp_fixed_alg.X.theta['param'], axis=0)
         # Compute squared error
-        mse_per_run_fixed.append(np.linalg.norm(estimated_mean - m) ** 2)
+        mse_per_run_fixed.append(np.linalg.norm(estimated_mean - gt) ** 2)
     
-    print(f"Total runtime for ESS_rmin={ESS_rmin}: {time.time()-print_time_start}")
+    print(f"Total runtime for noise var={data_noise_var}: {time.time()-print_time_start}")
 
     avg_n_temp_steps_adapt.append(np.mean(n_temp_steps_adapt))
-    print(f"Average number of tempering steps for ESS_min {ESS_rmin} is {avg_n_temp_steps_adapt[-1]}")
+    print(f"Average number of tempering steps for noise var {data_noise_var} is {avg_n_temp_steps_adapt[-1]}")
     
     # Compute statistics
     avg_runtime = np.mean(runtimes_adapt)
@@ -148,7 +129,7 @@ for ESS_rmin in ESS_rmin_seq:
 
     avg_solver_nsamp = np.mean(number_of_fw_solver_samples_adapt)
     avg_nsamps_adapt.append(avg_solver_nsamp)
-    print(f"Average solver nsamp in the last SMC step for ESS_rmin {ESS_rmin} is {avg_solver_nsamp}")
+    print(f"Average solver nsamp in the last SMC step for noise var {data_noise_var} is {avg_solver_nsamp}\n")
 
 # Compute 95% confidence intervals
 mse_se_adapt = np.array(mse_stddev_adapt) / np.sqrt(N_runs)  # Standard error
@@ -161,7 +142,7 @@ mse_upper_fixed = np.array(mse_values_fixed) + 1.96 * mse_se_fixed
 
 # Save numerical results
 np.savez(os.path.join(results_folder, "smc_results.npz"),
-         ESS_rmin_seq=ESS_rmin_seq,
+         data_noise_var_seq=sc.data_noise_var_seq,
          avg_runtimes_adapt=avg_runtimes_adapt,
          mse_values_adapt=mse_values_adapt,
          mse_stddev_adapt=mse_stddev_adapt,
