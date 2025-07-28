@@ -5,9 +5,10 @@ import shutil
 import inspect
 
 
-def export_conda_env(target_folder, env_name=None):
+def export_full_conda_env(target_folder, env_name=None):
     """
-    Export the current conda environment to environment.yml in the target folder.
+    Export the full current conda environment (including packages, versions, and Python)
+    to environment.yml in the target folder.
 
     Parameters
     ----------
@@ -19,19 +20,19 @@ def export_conda_env(target_folder, env_name=None):
     os.makedirs(target_folder, exist_ok=True)
     output_path = os.path.join(target_folder, "environment.yml")
 
-    # Construct the conda command
     if env_name is None:
-        cmd = ["conda", "env", "export", "--from-history", "-f", output_path]
+        cmd = ["conda", "env", "export", "-f", output_path]
     else:
-        cmd = ["conda", "env", "export", "--name", env_name, "--from-history", "-f", output_path]
+        cmd = ["conda", "env", "export", "--name", env_name, "-f", output_path]
 
-    print(f"Exporting conda environment to {output_path} ...")
+    print(f"Exporting full conda environment to {output_path} ...")
     try:
         subprocess.run(cmd, check=True)
         print("Export successful!")
     except subprocess.CalledProcessError as e:
         print("Error exporting conda environment:", e)
         sys.exit(1)
+
 
 
 def export_pip_requirements(target_folder):
@@ -83,19 +84,35 @@ def export_git_commit(target_folder, filename="git_commit.txt"):
         sys.exit(1)
 
 
-def copy_problem_setup(module, results_folder, new_name=None):
+def copy_problem_setup(module, target_folder, new_name=None):
     # Find the source .py file for the imported module
     src = inspect.getsourcefile(module) or module.__file__
     if src is None:
         raise RuntimeError("Cannot locate source file for module.")
 
     # Make sure destination exists
-    os.makedirs(results_folder, exist_ok=True)
+    os.makedirs(target_folder, exist_ok=True)
 
     # Destination path (optional rename)
     dst_name = new_name if new_name is not None else os.path.basename(src)
-    dst = os.path.join(results_folder, dst_name)
+    dst = os.path.join(target_folder, dst_name)
 
     # Copy (copy2 preserves timestamp/metadata)
     shutil.copy2(src, dst)
-    return dst
+
+def copy_main_script(target_folder, src):
+    """
+    Copies the currently executing main script to the specified folder.
+    
+    Args:
+        results_folder (str): The destination folder path.
+        new_name (str, optional): New filename (e.g., "main_backup.py"). If None, keep original filename.
+        
+    Returns:
+        str: Path to the copied file.
+    """
+
+    os.makedirs(target_folder, exist_ok=True)
+    dst_name = os.path.basename(src)
+    dst = os.path.join(target_folder, dst_name)
+    shutil.copy2(src, dst)
