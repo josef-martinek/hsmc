@@ -1,7 +1,7 @@
 from particles.smc_samplers import AdaptiveTempering, next_annealing_epn
 import numpy as np
 
-class TemperingAdaptNsamp(AdaptiveTempering):
+class TempAdaptNsampRew(AdaptiveTempering):
 
     def __init__(self, Nmin, ar_tol, model=None, wastefree=False, len_chain=10, move=None, ESSrmin=0.5, max_iter=1000):
         super().__init__(model, wastefree, len_chain, move, ESSrmin, max_iter)
@@ -51,7 +51,7 @@ class TemperingAdaptNsamp(AdaptiveTempering):
         return func
     
 
-class TemperingAdaptNsamp2(TemperingAdaptNsamp):
+class TempAdaptNsampNoRew(TempAdaptNsampRew):
 
     def logG_tempering(self, x, delta):
         dl = delta * x.llik
@@ -67,7 +67,7 @@ class TemperingAdaptNsamp2(TemperingAdaptNsamp):
         return dl
     
 
-class TemperingAdaptNsampDumm(TemperingAdaptNsamp):
+class TempAdaptNsampNoIS(TempAdaptNsampRew):
 
     def logG_tempering(self, x, delta):
         dl = delta * x.llik

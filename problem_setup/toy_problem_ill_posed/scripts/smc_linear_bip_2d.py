@@ -5,7 +5,7 @@ from particles.particles import smc_samplers as ssp
 from particles.particles.core import SMC
 from problem_setup.toy_problem_ill_posed.problem_parameters import MRWConfig as SamplerConfig
 import problem_setup.toy_problem_ill_posed.problem_parameters as params
-import utils.logging as logg
+import utils.logging as logging
 from matplotlib import pyplot as plt
 import seaborn as sb
 from utils.memoisation import likelihoodCache
@@ -13,7 +13,7 @@ import arviz as az
 import pandas as pd
 import seaborn as sb
 
-logger = logg.create_custom_logger("smc_logger")
+logger = logging.create_custom_logger("smc_logger")
 np.random.seed(1111)
 
 

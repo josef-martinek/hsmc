@@ -2,7 +2,7 @@ import numpy as np
 import scipy.stats as stats
 from particles import distributions as dists
 from particles import smc_samplers as ssp
-from core.samplers import TemperingAdaptNsamp2
+from core.samplers import TempAdaptNsampNoRew
 from particles.core import SMC
 from problem_setup.heat_eq_ip.problem_parameters import SamplerConfig as sc
 from problem_setup.heat_eq_ip.likelihood_model import IPModelExact, IPModelInexactFix, IPModelInexactAdapt
@@ -38,7 +38,7 @@ if __name__ == "__main__":
                                 data=observed_data)
 
     #fk_tempering = ssp.AdaptiveTempering(model=model, wastefree=False, len_chain=sc.len_chain, ESSrmin=0.7)
-    fk_tempering = TemperingAdaptNsamp2(Nmin=100, ar_tol=0.35, model=model, wastefree=False, len_chain=sc.len_chain, ESSrmin=0.7)
+    fk_tempering = TempAdaptNsampNoRew(Nmin=100, ar_tol=0.35, model=model, wastefree=False, len_chain=sc.len_chain, ESSrmin=0.7)
 
     my_temp_alg = SMC(fk=fk_tempering, N=sc.n_particles, ESSrmin=1., 
                                 verbose=True)

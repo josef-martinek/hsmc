@@ -6,15 +6,15 @@ import matplotlib.pyplot as plt
 import seaborn as sb
 from particles import distributions as dists
 from particles import smc_samplers as ssp
-from core.samplers import TemperingAdaptNsamp2
+from core.samplers import TempAdaptNsampNoRew
 from particles.core import SMC
 from problem_setup.toy_problem.problem_parameters import MRWConfig as SamplerConfig
 import problem_setup.toy_problem.problem_parameters as params
-import utils.logging as logg
+import utils.logging as logging
 from problem_setup.toy_problem.likelihood_model import IPModelExact, IPModelInexact, IPModelInexactFixed
 import shutil
 
-logger = logg.create_custom_logger("smc_logger")
+logger = logging.create_custom_logger("smc_logger")
 np.random.seed(1111)
 
 # Define results folder
@@ -82,7 +82,7 @@ for ESS_rmin in ESS_rmin_seq:
     print_time_start = time.time()
 
     for _ in range(N_runs):
-        tempering = TemperingAdaptNsamp2(Nmin=Nmin, ar_tol=ar_tol, 
+        tempering = TempAdaptNsampNoRew(Nmin=Nmin, ar_tol=ar_tol, 
                                                 model=inexact_model, wastefree=False, len_chain=len_chain, ESSrmin=ESS_rmin)
         
         my_temp_alg = SMC(fk=tempering, N=1000, ESSrmin=1., verbose=False)
