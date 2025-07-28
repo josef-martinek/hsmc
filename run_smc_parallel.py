@@ -31,18 +31,16 @@ prior = dists.StructDist({'param': dists.Normal(loc=0., scale=sc.prior_marg_var)
 true_sol = ModelExact.exact_binned_sol(gt)
 
 # Storage
-avg_runtimes_adapt = []
-avg_runtimes_fixed = []
-mse_values_adapt = []
-mse_values_fixed = []
-mse_stddev_adapt = []
-mse_stddev_fixed = []
-avg_nsamps_adapt = []
-avg_n_temp_steps_adapt = []
+avg_runtimes_ansamp, avg_runtimes_fnsamp_ftemp, avg_runtimes_fnsamp_atemp, avg_runtimes_exact = [], [], [], []
+avg_sim_cost_ansamp, avg_sim_cost_fnsamp_ftemp, avg_sim_cost_fnsamp_atemp = [], [], []
+mse_values_ansamp, mse_values_fnsamp_ftemp, mse_values_fnsamp_atemp, mse_values_exact = [], [], [], []
+mse_stddev_ansamp, mse_stddev_fnsamp_ftemp, mse_stddev_fnsamp_atemp, mse_stddev_exact = [], [], [], []
+avg_last_nsamps_ansamp, avg_n_temp_steps_ansamp, avg_n_temp_steps_fnsamp_atemp, avg_n_temp_steps_exact = [], [], [], []
 
 @ray.remote
 def wrapped_trial(*args):
     return run_single_smc_trial(*args)
+
 
 for data_noise_var in sc.data_noise_var_seq:
     print(f"Starting noise var {data_noise_var}")
@@ -50,51 +48,72 @@ for data_noise_var in sc.data_noise_var_seq:
     start_time = time.time()
 
     tasks = [
-        wrapped_trial.remote(data_noise_var, observed_data, prior, gt, len_chain, Nmin, ar_tol, sc.ESS_rmin)
+        wrapped_trial.remote(data_noise_var, observed_data, prior, gt, len_chain, Nmin, ar_tol, sc.ESS_rmin, sc.n_particles)
         for _ in range(N_runs)
     ]
     results = ray.get(tasks)
     print(f"Total runtime for noise var={data_noise_var}: {time.time()-start_time}")
 
-    runtimes_adapt, runtimes_fixed, mse_adapt, mse_fixed, nsamps, temp_steps = zip(*results)
+    (
+        runtimes_ansamp, runtimes_fnsamp_ftemp, runtimes_fnsamp_atemp, runtimes_exact,
+        mse_ansamp, mse_fnsamp_ftemp, mse_fnsamp_atemp, mse_exact,
+        sim_cost_ansamp, sim_cost_fnsamp_ftemp, sim_cost_fnsamp_atemp,
+        nsamps_last_ansamp, n_temp_steps_ansamp, n_temp_fnsamp_atemp, n_temp_exact
+    ) = zip(*results)
 
-    avg_runtimes_adapt.append(np.mean(runtimes_adapt))
-    avg_runtimes_fixed.append(np.mean(runtimes_fixed))
+    # Store means
+    avg_runtimes_ansamp.append(np.mean(runtimes_ansamp))
+    avg_runtimes_fnsamp_ftemp.append(np.mean(runtimes_fnsamp_ftemp))
+    avg_runtimes_fnsamp_atemp.append(np.mean(runtimes_fnsamp_atemp))
+    avg_runtimes_exact.append(np.mean(runtimes_exact))
 
-    mse_values_adapt.append(np.mean(mse_adapt))
-    mse_values_fixed.append(np.mean(mse_fixed))
+    avg_sim_cost_ansamp.append(np.mean(sim_cost_ansamp))
+    avg_sim_cost_fnsamp_ftemp.append(np.mean(sim_cost_fnsamp_ftemp))
+    avg_sim_cost_fnsamp_atemp.append(np.mean(sim_cost_fnsamp_atemp))
 
-    mse_stddev_adapt.append(np.std(mse_adapt, ddof=1))
-    mse_stddev_fixed.append(np.std(mse_fixed, ddof=1))
+    mse_values_ansamp.append(np.mean(mse_ansamp))
+    mse_values_fnsamp_ftemp.append(np.mean(mse_fnsamp_ftemp))
+    mse_values_fnsamp_atemp.append(np.mean(mse_fnsamp_atemp))
+    mse_values_exact.append(np.mean(mse_exact))
 
-    avg_nsamps_adapt.append(np.mean(nsamps))
-    avg_n_temp_steps_adapt.append(np.mean(temp_steps))
-    print(f"Average number of tempering steps for noise var {data_noise_var} is {avg_n_temp_steps_adapt[-1]}\n")
+    mse_stddev_ansamp.append(np.std(mse_ansamp, ddof=1))
+    mse_stddev_fnsamp_ftemp.append(np.std(mse_fnsamp_ftemp, ddof=1))
+    mse_stddev_fnsamp_atemp.append(np.std(mse_fnsamp_atemp, ddof=1))
+    mse_stddev_exact.append(np.std(mse_exact, ddof=1))
 
-# 95% CI
-mse_se_adapt = np.array(mse_stddev_adapt) / np.sqrt(N_runs)
-mse_lower_adapt = np.array(mse_values_adapt) - 1.96 * mse_se_adapt
-mse_upper_adapt = np.array(mse_values_adapt) + 1.96 * mse_se_adapt
+    avg_last_nsamps_ansamp.append(np.mean(nsamps_last_ansamp))
+    avg_n_temp_steps_ansamp.append(np.mean(n_temp_steps_ansamp))
+    avg_n_temp_steps_fnsamp_atemp.append(np.mean(n_temp_fnsamp_atemp))
+    avg_n_temp_steps_exact.append(np.mean(n_temp_exact))
 
-mse_se_fixed = np.array(mse_stddev_fixed) / np.sqrt(N_runs)
-mse_lower_fixed = np.array(mse_values_fixed) - 1.96 * mse_se_fixed
-mse_upper_fixed = np.array(mse_values_fixed) + 1.96 * mse_se_fixed
+    print(f"Average tempering steps (adaptive nsamp): {avg_n_temp_steps_ansamp[-1]}\n")
 
-# Save
+# Save everything
 np.savez(os.path.join(results_folder, "smc_results.npz"),
          data_noise_var_seq=sc.data_noise_var_seq,
-         avg_runtimes_adapt=avg_runtimes_adapt,
-         mse_values_adapt=mse_values_adapt,
-         mse_stddev_adapt=mse_stddev_adapt,
-         avg_nsamps_adapt=avg_nsamps_adapt,
-         mse_lower=mse_lower_adapt,
-         mse_upper=mse_upper_adapt,
-         avg_runtimes_fixed=avg_runtimes_fixed,
-         mse_values_fixed=mse_values_fixed,
-         mse_stddev_fixed=mse_stddev_fixed,
-         mse_lower_fixed=mse_lower_fixed,
-         mse_upper_fixed=mse_upper_fixed)
+         n_runs=N_runs,
 
-# Save script
-current_script = __file__
-shutil.copy(current_script, os.path.join(results_folder, "stoch_solver_vs_vanilla_smc.py"))
+         avg_runtimes_ansamp=avg_runtimes_ansamp,
+         avg_runtimes_fnsamp_ftemp=avg_runtimes_fnsamp_ftemp,
+         avg_runtimes_fnsamp_atemp=avg_runtimes_fnsamp_atemp,
+         avg_runtimes_exact=avg_runtimes_exact,
+ 
+         avg_sim_cost_ansamp=avg_sim_cost_ansamp,
+         avg_sim_cost_fnsamp_ftemp=avg_sim_cost_fnsamp_ftemp,
+         avg_sim_cost_fnsamp_atemp=avg_sim_cost_fnsamp_atemp,
+
+         mse_values_ansamp=mse_values_ansamp,
+         mse_values_fnsamp_ftemp=mse_values_fnsamp_ftemp,
+         mse_values_fnsamp_atemp=mse_values_fnsamp_atemp,
+         mse_values_exact=mse_values_exact,
+
+         mse_stddev_ansamp=mse_stddev_ansamp,
+         mse_stddev_fnsamp_ftemp=mse_stddev_fnsamp_ftemp,
+         mse_stddev_fnsamp_atemp=mse_stddev_fnsamp_atemp,
+         mse_stddev_exact=mse_stddev_exact,
+
+         avg_last_nsamps_ansamp=avg_last_nsamps_ansamp,
+         avg_n_temp_steps_ansamp=avg_n_temp_steps_ansamp,
+         avg_n_temp_steps_fnsamp_atemp=avg_n_temp_steps_fnsamp_atemp,
+         avg_n_temp_steps_exact=avg_n_temp_steps_exact
+     )
