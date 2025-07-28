@@ -60,11 +60,11 @@ for data_noise_var in sc.data_noise_var_seq:
     print_time_start = time.time()
 
     for _ in range(N_runs):
-        tempering = TempAdaptNsampNoRew(Nmin=Nmin, 
-                                        ar_tol=ar_tol, 
-                                        model=model_inex_adapt, 
-                                        wastefree=False, 
-                                        len_chain=len_chain, 
+        tempering = TempAdaptNsampNoRew(Nmin=Nmin,
+                                        ar_tol=ar_tol,
+                                        model=model_inex_adapt,
+                                        wastefree=False,
+                                        len_chain=len_chain,
                                         ESSrmin=sc.ESS_rmin)
         
         my_temp_alg = SMC(fk=tempering, N=100, ESSrmin=1., verbose=False)

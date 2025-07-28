@@ -62,7 +62,7 @@ for data_noise_var in sc.data_noise_var_seq:
 
     avg_nsamps_adapt.append(np.mean(nsamps))
     avg_n_temp_steps_adapt.append(np.mean(temp_steps))
-    print(f"Average number of tempering steps for noise var {data_noise_var} is {avg_n_temp_steps_adapt[-1]}")
+    print(f"Average number of tempering steps for noise var {data_noise_var} is {avg_n_temp_steps_adapt[-1]}\n")
 
 # 95% CI
 mse_se_adapt = np.array(mse_stddev_adapt) / np.sqrt(N_runs)
