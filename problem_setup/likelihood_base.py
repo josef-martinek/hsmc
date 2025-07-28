@@ -13,7 +13,9 @@ class IPModel(ssp.StaticModel, ABC):
             t = self.T
         else:
             raise NotImplementedError("loglikelihood is implemented only in full data case.")
-        return self._loglik(theta, nsamp=round(nsamp))
+        if nsamp is not None:
+            nsamp = round(nsamp)
+        return self._loglik(theta, nsamp)
     
     @abstractmethod
     def _loglik(self, theta, nsamp=None):
