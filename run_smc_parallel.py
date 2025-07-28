@@ -9,7 +9,7 @@ from problem_setup.heat_eq_ip.likelihood_model import HeatEqModel as ModelExact
 from smc_trial import run_single_smc_trial
 import utils.export_info as info
 
-results_folder = "data/smc_results_test"
+results_folder = info.create_results_folder()
 src = __file__
 os.makedirs(results_folder, exist_ok=True)
 info.export_full_conda_env(target_folder=results_folder)

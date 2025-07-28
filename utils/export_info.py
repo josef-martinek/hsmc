@@ -3,7 +3,15 @@ import os
 import sys
 import shutil
 import inspect
+from datetime import datetime
 
+
+def create_results_folder(base_dir="data", prefix="run"):
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    folder_name = f"{prefix}_{timestamp}"
+    full_path = os.path.join(base_dir, folder_name)
+    os.makedirs(full_path, exist_ok=False)  # Raises error if folder somehow exists
+    return full_path
 
 def export_full_conda_env(target_folder, env_name=None):
     """
