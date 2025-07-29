@@ -14,7 +14,8 @@ def run_single_smc_trial(data_noise_var, observed_data, prior, ground_truth, len
     model_inex_adapt = IPModelInexactAdapt(
         prior=prior,
         data_noise_cov=data_noise_var,
-        data=observed_data
+        data=observed_data,
+        parallel_eval=True
     )
 
     tempering = TempAdaptNsampNoRew(
@@ -49,7 +50,8 @@ def run_single_smc_trial(data_noise_var, observed_data, prior, ground_truth, len
         prior=prior,
         data_noise_cov=data_noise_var,
         data=observed_data,
-        nsamp=nsamp_last_ansamp
+        nsamp=nsamp_last_ansamp,
+        parallel_eval=True
     )
 
     tempering_fixed = ssp.Tempering(
@@ -72,7 +74,8 @@ def run_single_smc_trial(data_noise_var, observed_data, prior, ground_truth, len
         prior=prior,
         data_noise_cov=data_noise_var,
         data=observed_data,
-        nsamp=nsamp_last_ansamp
+        nsamp=nsamp_last_ansamp,
+        parallel_eval=True
     )
 
     tempering = ssp.AdaptiveTempering(

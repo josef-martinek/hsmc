@@ -4,9 +4,10 @@ import numpy as np
 
 
 class IPModel(ssp.StaticModel, ABC):
-    def __init__(self, prior, data_noise_cov, data: np.ndarray):
+    def __init__(self, prior, data_noise_cov, data: np.ndarray, parallel_eval=False):
         super().__init__(data=data, prior=prior)
         self.data_noise_cov = data_noise_cov
+        self.parallel_eval = parallel_eval
 
     def loglik(self, theta, nsamp=None, t=None):
         if t is None:
@@ -15,7 +16,7 @@ class IPModel(ssp.StaticModel, ABC):
             raise NotImplementedError("loglikelihood is implemented only in full data case.")
         if nsamp is not None:
             nsamp = round(nsamp)
-        return self._loglik(theta, nsamp)
+        return self._loglik(theta, nsamp=nsamp)
     
     @abstractmethod
     def _loglik(self, theta, nsamp=None):
@@ -27,7 +28,7 @@ class IPModel1D(IPModel, ABC):
     def _loglik(self, theta, nsamp=None):
         param_values = theta['param'].reshape(1,-1)
     
-        model_prediction = self.evaluate_model(param_values, nsamp)
+        model_prediction = self.evaluate_model(param_values, nsamp=nsamp)
         
         # Compute residual y - G(u)
         residual = self.data - model_prediction  # Shape (m, N)
@@ -35,15 +36,16 @@ class IPModel1D(IPModel, ABC):
         # Compute Phi(u) = 0.5 * || y - G(u) ||_Gamma^{-1}^2
         Phi = 0.5 * np.sum((residual ** 2) / self.data_noise_cov, axis=0)  # Shape (N,)
 
-        #self._cache.add(param_values, -Phi)
-
         # Log-likelihood
         return -Phi
     
     def evaluate_model(self, params: np.ndarray, nsamp=None):
-        evals = np.zeros(shape=(len(self.data),len(params[0])))
-        for i in range(len(params[0])):
-            evals[:, i] = self._evaluate_model(params[0][i], nsamp)
+        evals = np.zeros(shape=(len(self.data), len(params[0])))
+        if self.parallel_eval:
+            evals = self._evaluate_model(params[0], nsamp=nsamp)
+        else:
+            for i in range(len(params[0])):
+                evals[:, i] = self._evaluate_model(params[0][i], nsamp=nsamp)
         return evals
     
     @abstractmethod

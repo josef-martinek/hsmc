@@ -23,19 +23,20 @@ if __name__ == "__main__":
     # Generate synthetic data using ground truth
     true_sol = ModelExact.exact_binned_sol(sc.ground_truth_par)
     observed_data = true_sol + np.random.normal(loc=0., 
-                                                scale=np.sqrt(sc.data_noise_var), 
+                                                scale=np.sqrt(sc.data_noise_var_seq[0]), 
                                                 size=true_sol.shape)
 
     # model = IPModelExact(prior=prior, 
     #                            data_noise_cov=sc.data_noise_var, 
     #                            data=observed_data)
     # model = IPModelInexactFix(prior=prior, 
-    #                                   data_noise_cov=sc.data_noise_var, 
+    #                                   data_noise_cov=sc.data_noise_var_seq[0], 
     #                                   data=observed_data,
-    #                                   nsamp=sc.n_samples)
+    #                                   nsamp=1000)
     model = IPModelInexactAdapt(prior=prior,
-                                data_noise_cov=sc.data_noise_var,
-                                data=observed_data)
+                                data_noise_cov=sc.data_noise_var_seq[0],
+                                data=observed_data,
+                                parallel_eval=True)
 
     #fk_tempering = ssp.AdaptiveTempering(model=model, wastefree=False, len_chain=sc.len_chain, ESSrmin=0.7)
     fk_tempering = TempAdaptNsampNoRew(Nmin=100, ar_tol=0.35, model=model, wastefree=False, len_chain=sc.len_chain, ESSrmin=0.7)
