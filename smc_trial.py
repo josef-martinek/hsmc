@@ -6,10 +6,11 @@ from core.samplers import TempAdaptNsampNoRew
 from particles.core import SMC
 import logging
 
-def run_single_smc_trial(data_noise_var, observed_data, prior, ground_truth, len_chain, Nmin, ar_tol, ESSrmin, nparticles):
+def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chain, Nmin, ar_tol, ESSrmin, nparticles):
     from problem_setup.heat_eq_ip.likelihood_model import IPModelInexactAdapt, IPModelInexactFix, IPModelExact
 
     np.random.seed()  # Important for Ray workers TODO reproducibility?
+    observed_data = true_sol + np.random.normal(loc=0., scale=np.sqrt(data_noise_var), size=true_sol.shape)
 
     model_inex_adapt = IPModelInexactAdapt(
         prior=prior,

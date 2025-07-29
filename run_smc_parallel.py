@@ -48,11 +48,10 @@ def wrapped_trial(*args):
 
 for data_noise_var in sc.data_noise_var_seq:
     print(f"Starting noise var {data_noise_var}")
-    observed_data = true_sol + np.random.normal(loc=0., scale=np.sqrt(data_noise_var), size=true_sol.shape)
     start_time = time.time()
 
     tasks = [
-        wrapped_trial.remote(data_noise_var, observed_data, prior, gt, len_chain, Nmin, ar_tol, sc.ESS_rmin, sc.n_particles)
+        wrapped_trial.remote(data_noise_var, true_sol, prior, gt, len_chain, Nmin, ar_tol, sc.ESS_rmin, sc.n_particles)
         for _ in range(N_runs)
     ]
     results = ray.get(tasks)
