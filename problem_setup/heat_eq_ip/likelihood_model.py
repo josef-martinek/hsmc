@@ -50,27 +50,68 @@ class HeatEqModel:
         hist_density = hist / (nsamp * bin_width)
         return hist_density
 
+    @classmethod
+    def euler_maruyama_binned_vectorized(cls, params, nsamp):
+        """
+        params: array of shape (n_params,)
+        nsamp: number of samples per parameter
+        returns: array of shape (n_params, n_bins)
+        """
+        diffs = cls.param_to_diff(params)  # shape (n_params,)
+        n_params = len(diffs)
+
+        tspan = np.linspace(0, cls.t, round(cls.t / cls.dt))
+        n_steps = len(tspan)
+
+        # Initial positions: shape (n_params, nsamp)
+        x = np.full((n_params, nsamp), cls.initial_sample_position, dtype=np.float64)
+
+        # Euler–Maruyama simulation (vectorized across params)
+        for _ in range(1, n_steps):
+            dW = np.sqrt(cls.dt) * np.random.normal(size=(n_params, nsamp))
+            x += np.sqrt(2 * diffs[:, None]) * dW
+
+        # Histogramming
+        hist_array = np.empty((n_params, cls.n_bins), dtype=np.float64)
+        bin_edges = np.linspace(cls.x_min, cls.x_max, cls.n_bins + 1)
+        bin_width = bin_edges[1] - bin_edges[0]
+
+        for i in range(n_params):
+            hist, _ = np.histogram(x[i], bins=bin_edges, density=False)
+            hist_array[i] = hist / (nsamp * bin_width)
+
+        return np.transpose(hist_array)
+
 
 class IPModelExact(IPModel1D):
-    def _evaluate_model(self, param, nsamp=None):
+    def _evaluate_model(self, param, nsamp=None, parallel_eval=False):
         if nsamp is not None:
             logging.warning("Number of samples was specified when getting exact solution.")
+        if parallel_eval:
+            logging.error("For exact solution parallel evaluation is not supported.")
         return HeatEqModel.exact_binned_sol(param)
 
 
 class IPModelInexactFix(IPModel1D):
-    def __init__(self, prior, data_noise_cov, data, nsamp):
+    def __init__(self, prior, data_noise_cov, data, nsamp, parallel_eval=False):
         super().__init__(prior, data_noise_cov, data)
         self.nsamp = nsamp
+        self.parallel_eval = parallel_eval
 
     def _evaluate_model(self, param, nsamp=None):
         if nsamp is not None:
             logging.warning("Adaptive number of samples was specified when getting solution with fixed number of samples.")
-        return HeatEqModel.euler_maruyama_binned(param, self.nsamp)
+        if self.parallel_eval:
+            return HeatEqModel.euler_maruyama_binned_vectorized(param, self.nsamp)
+        else:
+            return HeatEqModel.euler_maruyama_binned(param=param, nsamp=self.nsamp)
 
 
 class IPModelInexactAdapt(IPModel1D):
     def _evaluate_model(self, param, nsamp=None):
         if nsamp is None:
             logging.error("Number of samples must be specified for each model evaluation separately when using adaptive number of samples.")
-        return HeatEqModel.euler_maruyama_binned(param, nsamp)
+        if self.parallel_eval:
+            return HeatEqModel.euler_maruyama_binned_vectorized(param, nsamp)
+        else:
+            return HeatEqModel.euler_maruyama_binned(param, nsamp)
