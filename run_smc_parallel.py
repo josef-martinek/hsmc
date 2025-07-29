@@ -7,13 +7,17 @@ from particles import distributions as dists
 from problem_setup.heat_eq_ip.problem_parameters import SamplerConfig as sc
 from problem_setup.heat_eq_ip.likelihood_model import HeatEqModel as ModelExact
 from smc_trial import run_single_smc_trial
+import smc_trial
 import utils.export_info as info
 
-results_folder = info.create_results_folder()
+#results_folder = info.create_results_folder()
+results_folder = "data/smc_results_test"
 src = __file__
 os.makedirs(results_folder, exist_ok=True)
 info.export_full_conda_env(target_folder=results_folder)
 info.copy_problem_setup(target_folder=results_folder, module=sc)
+info.copy_problem_setup(target_folder=results_folder, module=smc_trial)
+info.copy_problem_setup(target_folder=results_folder, module=ModelExact)
 info.export_pip_requirements(target_folder=results_folder)
 info.export_git_commit(target_folder=results_folder)
 info.copy_main_script(target_folder=results_folder, src=src)
