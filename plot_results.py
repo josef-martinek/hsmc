@@ -84,6 +84,37 @@ plt.tight_layout()
 plt.xlim(noise_vars[0], noise_vars[-1])
 plt.savefig(os.path.join(results_folder, "plot_sim_cost.png"))
 
+def tail_loglog_slope(x, y, k=4):
+    """Return slope (±stderr) from linear fit on the last k points in log10 space.
+       Also returns the tail x,y and (slope, intercept) for plotting."""
+    x = np.asarray(x)
+    y = np.asarray(y)
+    # Keep only positive entries (required for logs)
+    mask = (x > 0) & (y > 0)
+    x = x[mask]
+    y = y[mask]
+
+    k = min(k, len(x))
+    x_tail = x[-k:]
+    y_tail = y[-k:]
+
+    X = np.log10(x_tail)
+    Y = np.log10(y_tail)
+    # Linear regression with covariance to get stderr
+    (slope, intercept), cov = np.polyfit(X, Y, deg=1, cov=True)
+    slope_stderr = float(np.sqrt(cov[0, 0]))
+    return slope, slope_stderr, (x_tail, y_tail), (slope, intercept)
+
+# Compute slopes for the three curves
+k=6
+s_a, se_a, (xa, ya), (m_a, b_a) = tail_loglog_slope(noise_vars, cost_ansamp, k=k)
+s_f, se_f, (xf, yf), (m_f, b_f) = tail_loglog_slope(noise_vars, cost_fnsamp_ftemp, k=k)
+s_t, se_t, (xt, yt), (m_t, b_t) = tail_loglog_slope(noise_vars, cost_fnsamp_atemp, k=k)
+
+print(f"Ansamp slope (last 4): {s_a:.3f} ± {1.96*se_a:.3f}  (95% CI)")
+print(f"FNSamp FTemp slope (last 4): {s_f:.3f} ± {1.96*se_f:.3f}  (95% CI)")
+print(f"FNSamp ATemp slope (last 4): {s_t:.3f} ± {1.96*se_t:.3f}  (95% CI)")
+
 # 3. MSE with CI
 plt.figure(figsize=(6, 5))
 plt.plot(noise_vars, mse_ansamp, 'o-', label="Adaptive #samples, adaptive tempering")
