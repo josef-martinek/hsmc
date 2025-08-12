@@ -4,9 +4,12 @@ from particles import distributions as dists
 from particles import smc_samplers as ssp
 from core.samplers import TempAdaptNsampNoRew
 from particles.core import SMC
-from problem_setup.heat_eq_ip.problem_parameters import SamplerConfig as sc
-from problem_setup.heat_eq_ip.likelihood_model import IPModelExact, IPModelInexactFix, IPModelInexactAdapt
-from problem_setup.heat_eq_ip.likelihood_model import HeatEqModel as ModelExact
+# from problem_setup.heat_eq_ip.problem_parameters import SamplerConfig as sc
+# from problem_setup.heat_eq_ip.likelihood_model import IPModelExact, IPModelInexactFix, IPModelInexactAdapt
+# from problem_setup.heat_eq_ip.likelihood_model import HeatEqModel as ModelExact
+from problem_setup.toy_problem.problem_parameters import SamplerConfig as sc
+from problem_setup.toy_problem.likelihood_model import IPModelExact, IPModelInexactFix, IPModelInexactAdapt
+from problem_setup.toy_problem.likelihood_model import MatVecModel as ModelExact
 import utils.logging as logging
 from matplotlib import pyplot as plt
 import seaborn as sb
@@ -21,34 +24,38 @@ if __name__ == "__main__":
                                                     scale=sc.prior_marg_var)})
 
     # Generate synthetic data using ground truth
-    true_sol = ModelExact.exact_binned_sol(sc.ground_truth_par)
+    true_sol = ModelExact.exact_sol(sc.ground_truth_par).reshape(-1,1)
+    #true_sol = ModelExact.exact_binned_sol(sc.ground_truth_par)
     observed_data = true_sol + np.random.normal(loc=0., 
                                                 scale=np.sqrt(sc.data_noise_var_seq[0]), 
                                                 size=true_sol.shape)
 
     # model = IPModelExact(prior=prior, 
-    #                            data_noise_cov=sc.data_noise_var, 
-    #                            data=observed_data)
+    #                            data_noise_cov=sc.data_noise_var_seq[0], 
+    #                            data=observed_data,
+    #                            parallel_eval=True)
     # model = IPModelInexactFix(prior=prior, 
     #                                   data_noise_cov=sc.data_noise_var_seq[0], 
     #                                   data=observed_data,
-    #                                   nsamp=1000)
+    #                                   nsamp=1000,
+    #                                   parallel_eval=True)
     model = IPModelInexactAdapt(prior=prior,
                                 data_noise_cov=sc.data_noise_var_seq[0],
                                 data=observed_data,
                                 parallel_eval=True)
 
     #fk_tempering = ssp.AdaptiveTempering(model=model, wastefree=False, len_chain=sc.len_chain, ESSrmin=0.7)
-    fk_tempering = TempAdaptNsampNoRew(Nmin=100, ar_tol=0.35, model=model, wastefree=False, len_chain=sc.len_chain, ESSrmin=0.7)
+    fk_tempering = TempAdaptNsampNoRew(Nmin=100, ar_tol=0.35, model=model, wastefree=False, len_chain=sc.len_chain, ESSrmin=0.2)
 
     my_temp_alg = SMC(fk=fk_tempering, N=sc.n_particles, ESSrmin=1., 
                                 verbose=True)
     start_time = time.time()
     my_temp_alg.run()
+    my_temp_alg.setup_auxiliary_weights()
     my_temp_alg.resample_move()
     end_time = time.time()
     print(f"Runtime: {end_time-start_time}")
-    print(f"Number of fs samples: {fk_tempering.solver_nsamp}")
+    #print(f"Number of fs samples: {fk_tempering.solver_nsamp}")
 
     # Define prior and posterior distributions
     prior_dist = stats.norm(loc=0, scale=sc.prior_marg_var)

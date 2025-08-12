@@ -2,12 +2,13 @@
 import numpy as np
 import time
 from particles import smc_samplers as ssp
-from core.samplers import TempAdaptNsampNoRew
+from core.samplers import TempAdaptNsampNoRew, TempAdaptNsampRew, TempAdaptNsampNoIS
 from particles.core import SMC
 import logging
 
 def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chain, Nmin, ar_tol, ESSrmin, nparticles):
-    from problem_setup.heat_eq_ip.likelihood_model import IPModelInexactAdapt, IPModelInexactFix, IPModelExact
+    #from problem_setup.heat_eq_ip.likelihood_model import IPModelInexactAdapt, IPModelInexactFix, IPModelExact
+    from problem_setup.toy_problem.likelihood_model import IPModelExact, IPModelInexactFix, IPModelInexactAdapt
 
     np.random.seed()  # Important for Ray workers TODO reproducibility?
     observed_data = true_sol + np.random.normal(loc=0., scale=np.sqrt(data_noise_var), size=true_sol.shape)
@@ -31,6 +32,7 @@ def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chai
     my_temp_alg = SMC(fk=tempering, N=nparticles, ESSrmin=1., verbose=False)
     start_time = time.time()
     my_temp_alg.run()
+    my_temp_alg.setup_auxiliary_weights()
     my_temp_alg.resample_move()
     runtime_ansamp = time.time() - start_time
 
@@ -65,6 +67,7 @@ def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chai
     temp_fixed_alg = SMC(fk=tempering_fixed, N=nparticles, ESSrmin=1., verbose=False)
     start_time = time.time()
     temp_fixed_alg.run()
+    temp_fixed_alg.setup_auxiliary_weights()
     temp_fixed_alg.resample_move()
     runtime_fnsamp_ftemp = time.time() - start_time
 
@@ -89,6 +92,7 @@ def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chai
     temp_alg = SMC(fk=tempering, N=nparticles, ESSrmin=1., verbose=False)
     start_time = time.time()
     temp_alg.run()
+    temp_alg.setup_auxiliary_weights()
     temp_alg.resample_move()
     runtime_fnsamp_atemp = time.time() - start_time
     estimated_mean_fnsamp_atemp = np.average(temp_alg.X.theta['param'], axis=0)
@@ -100,7 +104,8 @@ def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chai
     model_exact = IPModelExact(
         prior=prior,
         data_noise_cov=data_noise_var,
-        data=observed_data
+        data=observed_data,
+        parallel_eval=True
     )
 
     tempering = ssp.AdaptiveTempering(
@@ -113,6 +118,7 @@ def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chai
     temp_alg = SMC(fk=tempering, N=nparticles, ESSrmin=1., verbose=False)
     start_time = time.time()
     temp_alg.run()
+    temp_alg.setup_auxiliary_weights()
     temp_alg.resample_move()
     runtime_exact = time.time() - start_time
     estimated_mean_fnsamp_atemp = np.average(temp_alg.X.theta['param'], axis=0)

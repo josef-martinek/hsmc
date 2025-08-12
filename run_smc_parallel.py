@@ -9,8 +9,10 @@ import ray
 
 from particles import distributions as dists
 
-from problem_setup.heat_eq_ip.problem_parameters import SamplerConfig as sc
-from problem_setup.heat_eq_ip.likelihood_model import HeatEqModel as ModelExact
+# from problem_setup.heat_eq_ip.problem_parameters import SamplerConfig as sc
+# from problem_setup.heat_eq_ip.likelihood_model import HeatEqModel as ModelExact
+from problem_setup.toy_problem.problem_parameters import SamplerConfig as sc
+from problem_setup.toy_problem.likelihood_model import MatVecModel as ModelExact
 from smc_trial import run_single_smc_trial
 import smc_trial
 import utils.export_info as info
@@ -19,13 +21,14 @@ import utils.export_info as info
 # -----------------------------
 # Config
 # -----------------------------
-RESULTS_FOLDER = "data/smc_results_test"   # or info.create_results_folder()
+#RESULTS_FOLDER = "data/smc_results_test"   # or info.create_results_folder()
+RESULTS_FOLDER = info.create_results_folder()
 #NUM_CPUS = int(os.environ.get("RAY_NUM_CPUS", "0"))  # 0 -> let Ray autodetect
-NUM_CPUS = 2
+NUM_CPUS = 0
 SEED = 1111
 
 # SMC hyperparameters
-N_runs = 2
+N_runs = 100
 Nmin = 100
 ar_tol = 0.35
 len_chain = 10
@@ -60,7 +63,7 @@ else:
 # -----------------------------
 prior = dists.StructDist({'param': dists.Normal(loc=0., scale=sc.prior_marg_var)})
 gt = sc.ground_truth_par
-true_sol = ModelExact.exact_binned_sol(gt)  # fixed "truth" used by all trials
+true_sol = ModelExact.exact_sol(gt).reshape(-1,1)  # fixed "truth" used by all trials
 
 data_noise_var_seq = sc.data_noise_var_seq
 
