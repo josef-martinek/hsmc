@@ -30,7 +30,7 @@ len_chain = 10
 gt = sc.ground_truth_par
 
 prior = dists.StructDist({'param': dists.Normal(loc=0., scale=sc.prior_marg_var)})
-true_sol = ModelExact.exact_binned_sol(sc.ground_truth_par)
+true_sol = ModelExact.exact_sol(sc.ground_truth_par)
 
 # Initialize storage
 avg_runtimes_adapt = []

@@ -16,7 +16,7 @@ class HeatEqModel:
         return np.exp(param)
 
     @classmethod
-    def exact_binned_sol(cls, param):
+    def exact_sol(cls, param):
         """
         Computes the bin-integrated values of the Gaussian solution to the heat equation.
 
@@ -89,7 +89,7 @@ class IPModelExact(IPModel1D):
             logging.warning("Number of samples was specified when getting exact solution.")
         if parallel_eval:
             logging.error("For exact solution parallel evaluation is not supported.")
-        return HeatEqModel.exact_binned_sol(param)
+        return HeatEqModel.exact_sol(param)
 
 
 class IPModelInexactFix(IPModel1D):
