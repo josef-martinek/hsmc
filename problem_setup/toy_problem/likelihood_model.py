@@ -23,32 +23,37 @@ class MatVecModel:
 
 
 class IPModelExact(IPModel1D):
-    def _evaluate_model(self, param, nsamp=None, parallel_eval=True): #TODO get rid of this nsamp, parallel eval can be in init.
+    def _evaluate_model(self, param, nsamp=None): #TODO get rid of this nsamp, parallel eval can be in init.
         if nsamp is not None:
             logging.warning("Number of samples was specified when getting exact solution.")
-        if parallel_eval is False:
-            logging.error("For exact solution only parallel evaluation is supported.")
         return MatVecModel.exact_sol(params=param.reshape(1, -1))
+
+    @property
+    def parallel_eval(self):
+        return True
 
 
 class IPModelInexactFix(IPModel1D):
-    def __init__(self, prior, data_noise_cov, data, nsamp, parallel_eval=False):
+    def __init__(self, prior, data_noise_cov, data, nsamp):
         super().__init__(prior, data_noise_cov, data)
         self.nsamp = nsamp
-        self.parallel_eval = parallel_eval
 
     def _evaluate_model(self, param, nsamp=None): # TODO probably get rid of this nsamp (is in init)
         if nsamp is not None:
             logging.warning("Adaptive number of samples was specified when getting solution with fixed number of samples.")
-        if self.parallel_eval is False:
-            logging.error("Only parallel evaluation supported.")
         return MatVecModel.inexact_sol(params=param.reshape(1, -1), nsamp=self.nsamp)
+
+    @property
+    def parallel_eval(self):
+        return True
 
 
 class IPModelInexactAdapt(IPModel1D):
     def _evaluate_model(self, param, nsamp=None):
         if nsamp is None:
             logging.error("Number of samples must be specified for each model evaluation separately when using adaptive number of samples.")
-        if self.parallel_eval is False:
-            logging.error("Only parallel evaluation supported.")
         return MatVecModel.inexact_sol(params=param.reshape(1, -1), nsamp=nsamp)
+
+    @property
+    def parallel_eval(self):
+        return True

@@ -4,10 +4,9 @@ import numpy as np
 
 
 class IPModel(ssp.StaticModel, ABC):
-    def __init__(self, prior, data_noise_cov, data: np.ndarray, parallel_eval=False):
+    def __init__(self, prior, data_noise_cov, data: np.ndarray):
         super().__init__(data=data, prior=prior)
         self.data_noise_cov = data_noise_cov
-        self.parallel_eval = parallel_eval
 
     def loglik(self, theta, nsamp=None, t=None):
         if t is None:
@@ -20,6 +19,11 @@ class IPModel(ssp.StaticModel, ABC):
     
     @abstractmethod
     def _loglik(self, theta, nsamp=None):
+        pass
+
+    @property
+    @abstractmethod
+    def parallel_eval(self) -> bool:
         pass
 
 

@@ -32,17 +32,14 @@ if __name__ == "__main__":
 
     # model = IPModelExact(prior=prior, 
     #                            data_noise_cov=sc.data_noise_var_seq[0], 
-    #                            data=observed_data,
-    #                            parallel_eval=True)
+    #                            data=observed_data)
     # model = IPModelInexactFix(prior=prior, 
     #                                   data_noise_cov=sc.data_noise_var_seq[0], 
     #                                   data=observed_data,
-    #                                   nsamp=1000,
-    #                                   parallel_eval=True)
+    #                                   nsamp=1000)
     model = IPModelInexactAdapt(prior=prior,
                                 data_noise_cov=sc.data_noise_var_seq[0],
-                                data=observed_data,
-                                parallel_eval=True)
+                                data=observed_data)
 
     #fk_tempering = ssp.AdaptiveTempering(model=model, wastefree=False, len_chain=sc.len_chain, ESSrmin=0.7)
     fk_tempering = TempAdaptNsampNoRew(Nmin=100, ar_tol=0.35, model=model, wastefree=False, len_chain=sc.len_chain, ESSrmin=0.2)

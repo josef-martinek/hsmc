@@ -84,19 +84,20 @@ class HeatEqModel:
 
 
 class IPModelExact(IPModel1D):
-    def _evaluate_model(self, param, nsamp=None, parallel_eval=False):
+    def _evaluate_model(self, param, nsamp=None):
         if nsamp is not None:
             logging.warning("Number of samples was specified when getting exact solution.")
-        if parallel_eval:
-            logging.error("For exact solution parallel evaluation is not supported.")
         return HeatEqModel.exact_sol(param)
+
+    @property
+    def parallel_eval(self):
+        return False
 
 
 class IPModelInexactFix(IPModel1D):
-    def __init__(self, prior, data_noise_cov, data, nsamp, parallel_eval=False):
+    def __init__(self, prior, data_noise_cov, data, nsamp):
         super().__init__(prior, data_noise_cov, data)
         self.nsamp = nsamp
-        self.parallel_eval = parallel_eval
 
     def _evaluate_model(self, param, nsamp=None):
         if nsamp is not None:
@@ -105,6 +106,10 @@ class IPModelInexactFix(IPModel1D):
             return HeatEqModel.euler_maruyama_binned_vectorized(param, self.nsamp)
         else:
             return HeatEqModel.euler_maruyama_binned(param=param, nsamp=self.nsamp)
+
+    @property
+    def parallel_eval(self):
+        return True
 
 
 class IPModelInexactAdapt(IPModel1D):
@@ -115,3 +120,7 @@ class IPModelInexactAdapt(IPModel1D):
             return HeatEqModel.euler_maruyama_binned_vectorized(param, nsamp)
         else:
             return HeatEqModel.euler_maruyama_binned(param, nsamp)
+
+    @property
+    def parallel_eval(self):
+        return True
