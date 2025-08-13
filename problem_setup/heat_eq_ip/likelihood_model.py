@@ -93,11 +93,11 @@ class IPModelExact(IPModel1D):
 
     @property
     def nsamp(self):
-        logging.error("nsamp not used in exact model.")
+        raise AttributeError("nsamp not used in exact model.")
 
     @nsamp.setter
     def nsamp(self, value):
-        logging.error("nsamp not used in exact model.")
+        raise AttributeError("nsamp not used in exact model.")
 
 
 class IPModelInexactFix(IPModel1D):
@@ -123,7 +123,7 @@ class IPModelInexactFix(IPModel1D):
 
     @nsamp.setter
     def nsamp(self, value):
-        logging.error("nsamp is read only in model with fixed number of samples.")
+        raise AttributeError("nsamp is read only in model with fixed number of samples.")
 
 
 class IPModelInexactAdapt(IPModel1D):
@@ -146,7 +146,7 @@ class IPModelInexactAdapt(IPModel1D):
     @property
     def nsamp(self):
         if self._nsamp is None:
-            logging.error("nsamp not specified in model with adaptive number of samples")
+            raise AttributeError("nsamp not specified in model with adaptive number of samples")
         return self._nsamp
 
     @nsamp.setter
