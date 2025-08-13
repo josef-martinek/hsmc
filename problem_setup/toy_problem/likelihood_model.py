@@ -23,37 +23,61 @@ class MatVecModel:
 
 
 class IPModelExact(IPModel1D):
-    def _evaluate_model(self, param, nsamp=None): #TODO get rid of this nsamp, parallel eval can be in init.
-        if nsamp is not None:
-            logging.warning("Number of samples was specified when getting exact solution.")
+    def _evaluate_model(self, param): #TODO get rid of this nsamp, parallel eval can be in init.
         return MatVecModel.exact_sol(params=param.reshape(1, -1))
 
     @property
     def parallel_eval(self):
         return True
 
+    @property
+    def nsamp(self):
+        logging.error("nsamp not used in exact model.")
+
+    @nsamp.setter
+    def nsamp(self, value):
+        logging.error("nsamp not used in exact model.")
+
 
 class IPModelInexactFix(IPModel1D):
     def __init__(self, prior, data_noise_cov, data, nsamp):
         super().__init__(prior, data_noise_cov, data)
-        self.nsamp = nsamp
+        self._nsamp = round(nsamp)
 
-    def _evaluate_model(self, param, nsamp=None): # TODO probably get rid of this nsamp (is in init)
-        if nsamp is not None:
-            logging.warning("Adaptive number of samples was specified when getting solution with fixed number of samples.")
+    def _evaluate_model(self, param): # TODO probably get rid of this nsamp (is in init)
         return MatVecModel.inexact_sol(params=param.reshape(1, -1), nsamp=self.nsamp)
 
     @property
     def parallel_eval(self):
         return True
 
+    @property
+    def nsamp(self):
+        return self._nsamp
+
+    @nsamp.setter
+    def nsamp(self, value):
+        logging.error("nsamp is read only in model with fixed number of samples.")
+
 
 class IPModelInexactAdapt(IPModel1D):
-    def _evaluate_model(self, param, nsamp=None):
-        if nsamp is None:
-            logging.error("Number of samples must be specified for each model evaluation separately when using adaptive number of samples.")
-        return MatVecModel.inexact_sol(params=param.reshape(1, -1), nsamp=nsamp)
+    def __init__(self, prior, data_noise_cov, data):
+        super().__init__(prior, data_noise_cov, data)
+        self._nsamp = None
+
+    def _evaluate_model(self, param):
+        return MatVecModel.inexact_sol(params=param.reshape(1, -1), nsamp=self.nsamp)
 
     @property
     def parallel_eval(self):
         return True
+
+    @property
+    def nsamp(self):
+        if self._nsamp is None:
+            logging.error("nsamp not specified in model with adaptive number of samples")
+        return self._nsamp
+
+    @nsamp.setter
+    def nsamp(self, value):
+        self._nsamp = round(value)

@@ -84,43 +84,71 @@ class HeatEqModel:
 
 
 class IPModelExact(IPModel1D):
-    def _evaluate_model(self, param, nsamp=None):
-        if nsamp is not None:
-            logging.warning("Number of samples was specified when getting exact solution.")
+    def _evaluate_model(self, param):
         return HeatEqModel.exact_sol(param)
 
     @property
     def parallel_eval(self):
         return False
 
+    @property
+    def nsamp(self):
+        logging.error("nsamp not used in exact model.")
+
+    @nsamp.setter
+    def nsamp(self, value):
+        logging.error("nsamp not used in exact model.")
+
 
 class IPModelInexactFix(IPModel1D):
     def __init__(self, prior, data_noise_cov, data, nsamp):
         super().__init__(prior, data_noise_cov, data)
-        self.nsamp = nsamp
+        self._nsamp = round(nsamp)
 
-    def _evaluate_model(self, param, nsamp=None):
-        if nsamp is not None:
-            logging.warning("Adaptive number of samples was specified when getting solution with fixed number of samples.")
+    def _evaluate_model(self, param):
         if self.parallel_eval:
-            return HeatEqModel.euler_maruyama_binned_vectorized(param, self.nsamp)
+            return HeatEqModel.euler_maruyama_binned_vectorized(params=param,
+                                                                nsamp=self.nsamp)
         else:
-            return HeatEqModel.euler_maruyama_binned(param=param, nsamp=self.nsamp)
+            return HeatEqModel.euler_maruyama_binned(param=param,
+                                                     nsamp=self.nsamp)
 
     @property
     def parallel_eval(self):
         return True
+
+    @property
+    def nsamp(self):
+        return self._nsamp
+
+    @nsamp.setter
+    def nsamp(self, value):
+        logging.error("nsamp is read only in model with fixed number of samples.")
 
 
 class IPModelInexactAdapt(IPModel1D):
-    def _evaluate_model(self, param, nsamp=None):
-        if nsamp is None:
-            logging.error("Number of samples must be specified for each model evaluation separately when using adaptive number of samples.")
+    def __init__(self, prior, data_noise_cov, data):
+        super().__init__(prior, data_noise_cov, data)
+        self._nsamp = None
+
+    def _evaluate_model(self, param):
         if self.parallel_eval:
-            return HeatEqModel.euler_maruyama_binned_vectorized(param, nsamp)
+            return HeatEqModel.euler_maruyama_binned_vectorized(params=param,
+                                                                nsamp=self.nsamp)
         else:
-            return HeatEqModel.euler_maruyama_binned(param, nsamp)
+            return HeatEqModel.euler_maruyama_binned(param=param,
+                                                     nsamp=self.nsamp)
 
     @property
     def parallel_eval(self):
         return True
+
+    @property
+    def nsamp(self):
+        if self._nsamp is None:
+            logging.error("nsamp not specified in model with adaptive number of samples")
+        return self._nsamp
+
+    @nsamp.setter
+    def nsamp(self, value):
+        self._nsamp = round(value)

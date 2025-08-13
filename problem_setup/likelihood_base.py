@@ -14,8 +14,8 @@ class IPModel(ssp.StaticModel, ABC):
         else:
             raise NotImplementedError("loglikelihood is implemented only in full data case.")
         if nsamp is not None:
-            nsamp = round(nsamp)
-        return self._loglik(theta, nsamp=nsamp)
+            self.nsamp = nsamp
+        return self._loglik(theta=theta)
     
     @abstractmethod
     def _loglik(self, theta, nsamp=None):
@@ -26,13 +26,23 @@ class IPModel(ssp.StaticModel, ABC):
     def parallel_eval(self) -> bool:
         pass
 
+    @property
+    @abstractmethod
+    def nsamp(self):
+        pass
+
+    @nsamp.setter
+    @abstractmethod
+    def nsamp(self, value):
+        pass
+
 
 class IPModel1D(IPModel, ABC):
 
-    def _loglik(self, theta, nsamp=None):
+    def _loglik(self, theta):
         param_values = theta['param'].reshape(1,-1)
     
-        model_prediction = self.evaluate_model(param_values, nsamp=nsamp)
+        model_prediction = self.evaluate_model(param_values)
         
         # Compute residual y - G(u)
         residual = self.data - model_prediction  # Shape (m, N)
@@ -43,15 +53,15 @@ class IPModel1D(IPModel, ABC):
         # Log-likelihood
         return -Phi
     
-    def evaluate_model(self, params: np.ndarray, nsamp=None):
+    def evaluate_model(self, params: np.ndarray):
         evals = np.zeros(shape=(len(self.data), len(params[0])))
         if self.parallel_eval:
-            evals = self._evaluate_model(params[0], nsamp=nsamp)
+            evals = self._evaluate_model(params[0])
         else:
             for i in range(len(params[0])):
-                evals[:, i] = self._evaluate_model(params[0][i], nsamp=nsamp)
+                evals[:, i] = self._evaluate_model(params[0][i])
         return evals
     
     @abstractmethod
-    def _evaluate_model(self, param, nsamp=None):
+    def _evaluate_model(self, param):
         pass
