@@ -16,8 +16,7 @@ def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chai
     model_inex_adapt = IPModelInexactAdapt(
         prior=prior,
         data_noise_cov=data_noise_var,
-        data=observed_data,
-        parallel_eval=True
+        data=observed_data
     )
 
     tempering = TempAdaptNsampNoRew(
