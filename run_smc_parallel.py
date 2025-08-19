@@ -29,9 +29,6 @@ SEED = 1111
 
 # SMC hyperparameters
 N_runs = 100
-Nmin = 100
-ar_tol = 0.35
-len_chain = 10
 
 # -----------------------------
 # Housekeeping / provenance
@@ -115,9 +112,9 @@ for noise_var in data_noise_var_seq:
             true_sol,
             prior,
             gt,
-            len_chain,
-            Nmin,
-            ar_tol,
+            sc.len_chain,
+            sc.Nmin,
+            sc.ar_tol,
             sc.ESS_rmin,
             sc.n_particles,
         )
