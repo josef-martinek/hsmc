@@ -17,6 +17,7 @@ import time
 
 logger = logging.create_custom_logger("smc_logger")
 np.random.seed(1111)
+resample_move_end = True
 
 if __name__ == "__main__":
 
@@ -48,8 +49,9 @@ if __name__ == "__main__":
                                 verbose=True)
     start_time = time.time()
     my_temp_alg.run()
-    my_temp_alg.setup_auxiliary_weights()
-    my_temp_alg.resample_move()
+    if resample_move_end:
+        my_temp_alg.setup_auxiliary_weights()
+        my_temp_alg.resample_move()
     end_time = time.time()
     print(f"Runtime: {end_time-start_time}")
     #print(f"Number of fs samples: {fk_tempering.solver_nsamp}")
@@ -62,7 +64,10 @@ if __name__ == "__main__":
     fig, ax = plt.subplots(figsize=(6, 5))  # Remove (1,2), just one plot
 
     # Plot histogram of sampled parameters
-    sb.histplot(x=my_temp_alg.X.theta['param'], stat='density', label='SMC Samples', ax=ax)
+    if resample_move_end:
+        sb.histplot(x=my_temp_alg.X.theta['param'], stat='density', label='SMC Samples', ax=ax)
+    else:
+        sb.histplot(x=my_temp_alg.X.theta['param'], weights=my_temp_alg.W, stat='density', label='SMC Samples', ax=ax)
 
     # Plot prior distribution
     x_vals = np.linspace(-3 * sc.prior_marg_var, 3 * sc.prior_marg_var, 1000)

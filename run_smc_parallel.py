@@ -26,6 +26,7 @@ RESULTS_FOLDER = info.create_results_folder()
 #NUM_CPUS = int(os.environ.get("RAY_NUM_CPUS", "0"))  # 0 -> let Ray autodetect
 NUM_CPUS = 0
 SEED = 1111
+resample_move_end = False
 
 # SMC hyperparameters
 N_runs = 100
@@ -117,6 +118,7 @@ for noise_var in data_noise_var_seq:
             sc.ar_tol,
             sc.ESS_rmin,
             sc.n_particles,
+            resample_move_end
         )
         submitted_refs.append(ref)
         ref_to_noise[ref] = noise_var
