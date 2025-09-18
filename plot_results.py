@@ -2,36 +2,41 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
+# Plot styling
+fontsize = 16
+markersize = 10
+linewidth = 2
+
 # === CONFIGURE PATH ===
-results_folder = "data/run_20250728-231738"
+results_folder = "data/run_20250905-145609"
 results_path = os.path.join(results_folder, "smc_results.npz")
 data = np.load(results_path)
 
 # === LOAD DATA ===
-noise_vars = data["data_noise_var_seq"]
+noise_vars = data["data_noise_var_seq"][0:-1]
 n_runs = int(data["n_runs"])
 
 # Runtime (all 4 methods)
-runtime_ansamp = data["avg_runtimes_ansamp"]
-runtime_fnsamp_ftemp = data["avg_runtimes_fnsamp_ftemp"]
-runtime_fnsamp_atemp = data["avg_runtimes_fnsamp_atemp"]
-runtime_exact = data["avg_runtimes_exact"]
+runtime_ansamp = data["avg_runtimes_ansamp"][0:-1]
+runtime_fnsamp_ftemp = data["avg_runtimes_fnsamp_ftemp"][0:-1]
+runtime_fnsamp_atemp = data["avg_runtimes_fnsamp_atemp"][0:-1]
+runtime_exact = data["avg_runtimes_exact"][0:-1]
 
 # Simulation cost (3 methods)
-cost_ansamp = data["avg_sim_cost_ansamp"]
-cost_fnsamp_ftemp = data["avg_sim_cost_fnsamp_ftemp"]
-cost_fnsamp_atemp = data["avg_sim_cost_fnsamp_atemp"]
+cost_ansamp = data["avg_sim_cost_ansamp"][0:-1]
+cost_fnsamp_ftemp = data["avg_sim_cost_fnsamp_ftemp"][0:-1]
+cost_fnsamp_atemp = data["avg_sim_cost_fnsamp_atemp"][0:-1]
 
 # MSE and stddev
-mse_ansamp = data["mse_values_ansamp"]
-mse_fnsamp_ftemp = data["mse_values_fnsamp_ftemp"]
-mse_fnsamp_atemp = data["mse_values_fnsamp_atemp"]
-mse_exact = data["mse_values_exact"]
+mse_ansamp = data["mse_values_ansamp"][0:-1]
+mse_fnsamp_ftemp = data["mse_values_fnsamp_ftemp"][0:-1]
+mse_fnsamp_atemp = data["mse_values_fnsamp_atemp"][0:-1]
+mse_exact = data["mse_values_exact"][0:-1]
 
-std_ansamp = data["mse_stddev_ansamp"]
-std_fnsamp_ftemp = data["mse_stddev_fnsamp_ftemp"]
-std_fnsamp_atemp = data["mse_stddev_fnsamp_atemp"]
-std_exact = data["mse_stddev_exact"]
+std_ansamp = data["mse_stddev_ansamp"][0:-1]
+std_fnsamp_ftemp = data["mse_stddev_fnsamp_ftemp"][0:-1]
+std_fnsamp_atemp = data["mse_stddev_fnsamp_atemp"][0:-1]
+std_exact = data["mse_stddev_exact"][0:-1]
 
 # Compute 95% confidence intervals
 def confidence_interval(mean, std, n):
@@ -44,25 +49,25 @@ ci_fnsamp_atemp = confidence_interval(mse_fnsamp_atemp, std_fnsamp_atemp, n_runs
 ci_exact = confidence_interval(mse_exact, std_exact, n_runs)
 
 # Other stats
-avg_last_nsamps_ansamp = data["avg_last_nsamps_ansamp"]
-tempsteps_ansamp = data["avg_n_temp_steps_ansamp"]
-tempsteps_fnsamp_atemp = data["avg_n_temp_steps_fnsamp_atemp"]
-tempsteps_exact = data["avg_n_temp_steps_exact"]
+avg_last_nsamps_ansamp = data["avg_last_nsamps_ansamp"][0:-1]
+tempsteps_ansamp = data["avg_n_temp_steps_ansamp"][0:-1]
+tempsteps_fnsamp_atemp = data["avg_n_temp_steps_fnsamp_atemp"][0:-1]
+tempsteps_exact = data["avg_n_temp_steps_exact"][0:-1]
 
 # === PLOTS ===
 
 # 1. Runtime
 plt.figure(figsize=(6, 5))
-plt.plot(noise_vars, runtime_ansamp, 'o-', label="Adaptive #samples, adaptive tempering")
-plt.plot(noise_vars, runtime_fnsamp_ftemp, '^-', label="Fixed #samples, fixed tempering")
-plt.plot(noise_vars, runtime_fnsamp_atemp, 's-', label="Fixed #samples, adaptive tempering")
-#plt.plot(noise_vars, runtime_exact, 'd-', label="Exact")
+plt.plot(noise_vars, runtime_ansamp, 'o-', label="Adapt S, adapt temp", linewidth=linewidth, markersize=markersize)
+#plt.plot(noise_vars, runtime_fnsamp_ftemp, '^-', label="Fixed #samples, fixed tempering", linewidth=linewidth, markersize=markersize)
+plt.plot(noise_vars, runtime_fnsamp_atemp, 's-', label="Fixed S, adapt temp", linewidth=linewidth, markersize=markersize)
+#plt.plot(noise_vars, runtime_exact, 'd-', label="Exact", linewidth=linewidth, markersize=markersize)
 plt.xscale("log")
 plt.yscale("log")
-plt.xlabel("Observation noise variance $\sigma^2$")
-plt.ylabel("Average Runtime (s)")
+plt.xlabel("Observation noise variance $\sigma^2$", fontsize=fontsize)
+plt.ylabel("Average Runtime (s)", fontsize=fontsize)
 plt.title("Runtime vs Noise Variance")
-plt.legend()
+plt.legend(fontsize=fontsize-3, loc='upper left')
 plt.grid(True)
 plt.tight_layout()
 plt.xlim(noise_vars[0], noise_vars[-1])
@@ -78,7 +83,7 @@ plt.yscale("log")
 plt.xlabel("Observation noise variance $\sigma^2$")
 plt.ylabel("Average Simulated Cost")
 plt.title("Simulated Cost vs Noise Variance")
-plt.legend()
+plt.legend(fontsize=fontsize)
 plt.grid(True)
 plt.tight_layout()
 plt.xlim(noise_vars[0], noise_vars[-1])
@@ -117,24 +122,24 @@ print(f"FNSamp ATemp slope (last 4): {s_t:.3f} ± {1.96*se_t:.3f}  (95% CI)")
 
 # 3. MSE with CI
 plt.figure(figsize=(6, 5))
-plt.plot(noise_vars, mse_ansamp, 'o-', label="Adaptive #samples, adaptive tempering")
+plt.plot(noise_vars, mse_ansamp, 'o-', label="Adapt S, adapt. temp", linewidth=linewidth, markersize=markersize)
 plt.fill_between(noise_vars, ci_ansamp[0], ci_ansamp[1], alpha=0.2)
 
-plt.plot(noise_vars, mse_fnsamp_ftemp, '^-', label="Fixed #samples, fixed tempering")
+plt.plot(noise_vars, mse_fnsamp_ftemp, '^-', label="Fixed #samples, fixed tempering", linewidth=linewidth, markersize=markersize)
 plt.fill_between(noise_vars, ci_fnsamp_ftemp[0], ci_fnsamp_ftemp[1], alpha=0.2)
 
-plt.plot(noise_vars, mse_fnsamp_atemp, 's-', label="Fixed #samples, adaptive tempering")
+plt.plot(noise_vars, mse_fnsamp_atemp, 's-', label="Fixed S, adapt. temp", linewidth=linewidth, markersize=markersize)
 plt.fill_between(noise_vars, ci_fnsamp_atemp[0], ci_fnsamp_atemp[1], alpha=0.2)
 
-plt.plot(noise_vars, mse_exact, 'd-', label="analytic. HE sol, adaptive tempering")
+plt.plot(noise_vars, mse_exact, 'd-', label="Exact HE sol, adapt temp", linewidth=linewidth, markersize=markersize)
 plt.fill_between(noise_vars, ci_exact[0], ci_exact[1], alpha=0.2)
 
 plt.xscale("log")
 plt.yscale("log")
-plt.xlabel("Observation noise variance")
-plt.ylabel("MSE on the true parameter $\sigma^2$")
+plt.xlabel("Observation noise variance $\sigma^2$", fontsize=fontsize)
+plt.ylabel("MSE on the ground truth", fontsize=fontsize)
 plt.title("MSE with 95% CI vs Noise Variance")
-plt.legend()
+plt.legend(fontsize=fontsize-3)
 plt.grid(True)
 plt.tight_layout()
 plt.xlim(noise_vars[0], noise_vars[-1])
@@ -150,6 +155,7 @@ plt.ylabel("Average final sample count")
 plt.title("Final Nsamps for Ansamp")
 plt.grid(True)
 plt.tight_layout()
+plt.legend(fontsize=fontsize)
 plt.xlim(noise_vars[0], noise_vars[-1])
 plt.savefig(os.path.join(results_folder, "plot_last_nsamps.png"))
 
