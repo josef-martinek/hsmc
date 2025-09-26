@@ -157,6 +157,7 @@ cython_debug/
 data/
 test_old/
 plots/
+problem_setup/rayleigh_problem_dsmc/ground_truth/
 
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
