@@ -6,14 +6,15 @@ from core.samplers import TempAdaptNsampNoRew
 from particles.core import SMC
 from problem_setup.rayleigh_problem_dsmc.problem_parameters import SamplerConfig as sc
 from problem_setup.rayleigh_problem_dsmc.likelihood_model import IPModelInexactFix, IPModelInexactAdapt
-import utils.logging as logging
+import logging
 from matplotlib import pyplot as plt
 import seaborn as sb
 import time
 
-logger = logging.create_custom_logger("smc_logger")
 np.random.seed(1111)
-resample_move_end = False
+resample_move_end = True
+if resample_move_end is False:
+    logging.error("simulation supported only with moving at the end.")
 
 if __name__ == "__main__":
 
@@ -49,25 +50,8 @@ if __name__ == "__main__":
     end_time = time.time()
     print(f"Runtime: {end_time-start_time}")
     #print(f"Number of fs samples: {fk_tempering.solver_nsamp}")
-
-    # Define prior and posterior distributions
-    prior_dist = stats.norm(loc=sc.prior_mean, scale=sc.prior_marg_var)
-
-    # Plot results
-    # Create a single subplot instead of (1,2)
-    fig, ax = plt.subplots(figsize=(6, 5))  # Remove (1,2), just one plot
-
-    # Plot histogram of sampled parameters
-    if resample_move_end:
-        sb.histplot(x=my_temp_alg.X.theta['param'], stat='density', label='SMC Samples', ax=ax)
-    else:
-        sb.histplot(x=my_temp_alg.X.theta['param'], weights=my_temp_alg.W, stat='density', label='SMC Samples', ax=ax)
-
-    # Plot prior distribution
-    x_vals = np.linspace(-3 * sc.prior_marg_var, 3 * sc.prior_marg_var, 1000)
-    ax.plot(x_vals, prior_dist.pdf(x_vals), label='Prior', linestyle='dashed', color='black')
-
-    ax.set_xlabel('param')
-    ax.legend()
-
-    plt.show()
+    np.savez("dsmc_infer_results", post_samp=my_temp_alg.X.theta['param'],
+             prior_mean=sc.prior_mean,
+             prior_marg_var=sc.prior_marg_var,
+             true_sol=true_sol,
+             noisy_data=observed_data)
