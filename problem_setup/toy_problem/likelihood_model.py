@@ -19,7 +19,8 @@ class MatVecModel:
     
     @classmethod
     def inexact_sol(cls, params, nsamp):
-        return cls.exact_fw_operator @ params + np.mean(np.random.normal(loc=0., scale=np.sqrt(cls.solver_noise_var_constant), size=(nsamp, *cls.exact_fw_operator.shape)), axis=0)
+        noise = np.random.normal(loc=0., scale=np.sqrt(cls.solver_noise_var_constant), size=(nsamp, cls.exact_fw_operator.shape[0], params.shape[1]))
+        return cls.exact_sol(params) + np.mean(noise, axis=0)
 
 
 class IPModelExact(IPModel1D):
