@@ -40,7 +40,7 @@ class IPModel(ssp.StaticModel, ABC):
 class IPModel1D(IPModel, ABC):
 
     def _loglik(self, theta):
-        param_values = theta['param'].reshape(1,-1)
+        param_values = self.get_param_from_theta(theta)
     
         model_prediction = self.evaluate_model(param_values)
         
@@ -62,6 +62,24 @@ class IPModel1D(IPModel, ABC):
                 evals[:, i] = self._evaluate_model(params[0][i])
         return evals
     
+    def get_param_from_theta(self, theta):
+        return theta['param'].reshape(1,-1)
+    
     @abstractmethod
     def _evaluate_model(self, param):
         pass
+
+
+class IPModelHD(IPModel1D, ABC):
+
+    def get_param_from_theta(self, theta):
+        return theta['param']
+    
+    def evaluate_model(self, params: np.ndarray):
+        evals = np.zeros(shape=(len(self.data), params.shape[0]))
+        if self.parallel_eval:
+            evals = self._evaluate_model(params)
+        else:
+            for i in range(len(params[0])):
+                evals[:, i] = self._evaluate_model(params[i])
+        return evals
