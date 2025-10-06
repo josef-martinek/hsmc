@@ -10,12 +10,14 @@ from problem_setup.heat_eq_ip.likelihood_model import HeatEqModel as ModelExact
 # from problem_setup.toy_problem.problem_parameters import SamplerConfig as sc
 # from problem_setup.toy_problem.likelihood_model import IPModelExact, IPModelInexactFix, IPModelInexactAdapt
 # from problem_setup.toy_problem.likelihood_model import MatVecModel as ModelExact
-import utils.logging as logging
+import logging
 from matplotlib import pyplot as plt
 import seaborn as sb
 import time
 
-logger = logging.create_custom_logger("smc_logger")
+if len(sc.ground_truth_par) > 1:
+    logging.error("This script is only for 1D inference.")
+
 np.random.seed(1111)
 resample_move_end = True
 
