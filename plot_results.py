@@ -13,30 +13,30 @@ results_path = os.path.join(results_folder, "smc_results.npz")
 data = np.load(results_path)
 
 # === LOAD DATA ===
-noise_vars = data["data_noise_var_seq"][0:-1]
+noise_vars = data["data_noise_var_seq"]
 n_runs = int(data["n_runs"])
 
 # Runtime (all 4 methods)
-runtime_ansamp = data["avg_runtimes_ansamp"][0:-1]
-runtime_fnsamp_ftemp = data["avg_runtimes_fnsamp_ftemp"][0:-1]
-runtime_fnsamp_atemp = data["avg_runtimes_fnsamp_atemp"][0:-1]
-runtime_exact = data["avg_runtimes_exact"][0:-1]
+runtime_ansamp = data["avg_runtimes_ansamp"]
+runtime_fnsamp_ftemp = data["avg_runtimes_fnsamp_ftemp"]
+runtime_fnsamp_atemp = data["avg_runtimes_fnsamp_atemp"]
+runtime_exact = data["avg_runtimes_exact"]
 
 # Simulation cost (3 methods)
-cost_ansamp = data["avg_sim_cost_ansamp"][0:-1]
-cost_fnsamp_ftemp = data["avg_sim_cost_fnsamp_ftemp"][0:-1]
-cost_fnsamp_atemp = data["avg_sim_cost_fnsamp_atemp"][0:-1]
+cost_ansamp = data["avg_sim_cost_ansamp"]
+cost_fnsamp_ftemp = data["avg_sim_cost_fnsamp_ftemp"]
+cost_fnsamp_atemp = data["avg_sim_cost_fnsamp_atemp"]
 
 # MSE and stddev
-mse_ansamp = data["mse_values_ansamp"][0:-1]
-mse_fnsamp_ftemp = data["mse_values_fnsamp_ftemp"][0:-1]
-mse_fnsamp_atemp = data["mse_values_fnsamp_atemp"][0:-1]
-mse_exact = data["mse_values_exact"][0:-1]
+mse_ansamp = data["mse_values_ansamp"]
+mse_fnsamp_ftemp = data["mse_values_fnsamp_ftemp"]
+mse_fnsamp_atemp = data["mse_values_fnsamp_atemp"]
+mse_exact = data["mse_values_exact"]
 
-std_ansamp = data["mse_stddev_ansamp"][0:-1]
-std_fnsamp_ftemp = data["mse_stddev_fnsamp_ftemp"][0:-1]
-std_fnsamp_atemp = data["mse_stddev_fnsamp_atemp"][0:-1]
-std_exact = data["mse_stddev_exact"][0:-1]
+std_ansamp = data["mse_stddev_ansamp"]
+std_fnsamp_ftemp = data["mse_stddev_fnsamp_ftemp"]
+std_fnsamp_atemp = data["mse_stddev_fnsamp_atemp"]
+std_exact = data["mse_stddev_exact"]
 
 # Compute 95% confidence intervals
 def confidence_interval(mean, std, n):
@@ -49,19 +49,19 @@ ci_fnsamp_atemp = confidence_interval(mse_fnsamp_atemp, std_fnsamp_atemp, n_runs
 ci_exact = confidence_interval(mse_exact, std_exact, n_runs)
 
 # Other stats
-avg_last_nsamps_ansamp = data["avg_last_nsamps_ansamp"][0:-1]
-tempsteps_ansamp = data["avg_n_temp_steps_ansamp"][0:-1]
-tempsteps_fnsamp_atemp = data["avg_n_temp_steps_fnsamp_atemp"][0:-1]
-tempsteps_exact = data["avg_n_temp_steps_exact"][0:-1]
+avg_last_nsamps_ansamp = data["avg_last_nsamps_ansamp"]
+tempsteps_ansamp = data["avg_n_temp_steps_ansamp"]
+tempsteps_fnsamp_atemp = data["avg_n_temp_steps_fnsamp_atemp"]
+tempsteps_exact = data["avg_n_temp_steps_exact"]
 
 # === PLOTS ===
 
 # 1. Runtime
 plt.figure(figsize=(6, 5))
 plt.plot(noise_vars, runtime_ansamp, 'o-', label="Adapt S, adapt temp", linewidth=linewidth, markersize=markersize)
-#plt.plot(noise_vars, runtime_fnsamp_ftemp, '^-', label="Fixed #samples, fixed tempering", linewidth=linewidth, markersize=markersize)
+plt.plot(noise_vars, runtime_fnsamp_ftemp, '^-', label="Fixed #samples, fixed tempering", linewidth=linewidth, markersize=markersize)
 plt.plot(noise_vars, runtime_fnsamp_atemp, 's-', label="Fixed S, adapt temp", linewidth=linewidth, markersize=markersize)
-#plt.plot(noise_vars, runtime_exact, 'd-', label="Exact", linewidth=linewidth, markersize=markersize)
+plt.plot(noise_vars, runtime_exact, 'd-', label="Exact", linewidth=linewidth, markersize=markersize)
 plt.xscale("log")
 plt.yscale("log")
 plt.xlabel("Observation noise variance $\sigma^2$", fontsize=fontsize)
