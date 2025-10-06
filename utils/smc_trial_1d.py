@@ -1,4 +1,3 @@
-# smc_trial.py
 import numpy as np
 import time
 from particles import smc_samplers as ssp

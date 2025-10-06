@@ -1,24 +1,23 @@
-# smc_run_parallel_allvars.py
 import os
 import time
-import shutil
 from collections import defaultdict
 import logging
 import numpy as np
 import ray
-
 from particles import distributions as dists
 
 # from problem_setup.heat_eq_ip.problem_parameters import SamplerConfig as sc
 # from problem_setup.heat_eq_ip.likelihood_model import HeatEqModel as ModelExact
 from problem_setup.toy_problem.problem_parameters import SamplerConfig as sc
 from problem_setup.toy_problem.likelihood_model import MatVecModel as ModelExact
-from utils.smc_trial_1d import run_single_smc_trial
+import utils.smc_trial_hd
 import utils.smc_trial_1d
 import utils.export_info as info
 
-if len(sc.ground_truth_par) > 1:
-    logging.error("This script is only for 1D inference.")
+if len(sc.ground_truth_par) == 1:
+    from utils.smc_trial_1d import run_single_smc_trial
+else:
+    from utils.smc_trial_hd import run_single_smc_trial
 
 # -----------------------------
 # Config
@@ -28,14 +27,14 @@ RESULTS_FOLDER = "data/smc_results_test"   # or info.create_results_folder()
 #NUM_CPUS = int(os.environ.get("RAY_NUM_CPUS", "0"))  # 0 -> let Ray autodetect
 NUM_CPUS = 0
 SEED = 1111
-resample_move_end = False
-fix_observed_data = False
+resample_move_end = True
+fix_observed_data = True
 
 param_seq = sc.Nmin
 param_seq_name = "Nmin"
 
 # Nr of inference runs for each param in param_seq
-N_runs = 2
+N_runs = 50
 
 # -----------------------------
 # Housekeeping / provenance
@@ -50,7 +49,7 @@ info.copy_problem_setup(target_folder=RESULTS_FOLDER, module=sc)
 if len(sc.ground_truth_par) == 1:
     info.copy_problem_setup(target_folder=RESULTS_FOLDER, module=utils.smc_trial_1d)
 else:
-    raise NotImplementedError
+    info.copy_problem_setup(target_folder=RESULTS_FOLDER, module=utils.smc_trial_hd)
 info.copy_problem_setup(target_folder=RESULTS_FOLDER, module=ModelExact)
 info.export_pip_requirements(target_folder=RESULTS_FOLDER)
 info.export_git_commit(target_folder=RESULTS_FOLDER)
@@ -68,7 +67,12 @@ else:
 # -----------------------------
 # Problem setup
 # -----------------------------
-prior = dists.StructDist({'param': dists.Normal(loc=0., scale=sc.prior_marg_var)})
+if len(sc.ground_truth_par) == 1:
+    prior = dists.StructDist({'param': dists.Normal(loc=0., scale=sc.prior_marg_var)})
+else:
+    param_dim = len(sc.ground_truth_par)
+    prior = dists.StructDist({'param': dists.MvNormal(loc=np.zeros(param_dim),
+                                                    cov=sc.prior_marg_var*np.eye(param_dim))})
 gt = sc.ground_truth_par
 true_sol = ModelExact.exact_sol(gt).reshape(-1,1)  # fixed "truth" used by all trials
 
