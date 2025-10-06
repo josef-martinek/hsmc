@@ -4,8 +4,8 @@ from particles.smc_samplers import ArrayRandomWalk, Tempering
 from particles import distributions as dists
 import numpy as np
 from problem_setup.toy_problem.problem_parameters import SamplerConfig as sc
-from problem_setup.toy_problem.likelihood_model import IPModelInexactFix
-from problem_setup.toy_problem.likelihood_model import IPModelInexactFixHD
+from problem_setup.toy_problem.likelihood_model import IPModelInexactFix, IPModelExact
+from problem_setup.toy_problem.likelihood_model import IPModelInexactFixHD, IPModelExactHD
 from problem_setup.toy_problem.likelihood_model import MatVecModel as ModelExact
 import matplotlib.pyplot as plt
 import seaborn as sb
@@ -15,8 +15,8 @@ np.random.seed(seed=1111)
 thinning_step = 10
 burn_in = 1000
 len_chain = 10000
-nsamp_pm = 2000
-nsamp_mcwm = 50
+nsamp_pm = 4000
+nsamp_mcwm = 100
 
 if len(sc.ground_truth_par) == 1:
     prior = dists.StructDist({'param': dists.Normal(loc=0., 
@@ -37,15 +37,30 @@ if len(sc.ground_truth_par) == 1:
                             data_noise_cov=sc.data_noise_var_seq[0],
                             data=observed_data,
                             nsamp=nsamp_pm)
+    model_coarse = IPModelInexactFix(prior=prior,
+                            data_noise_cov=sc.data_noise_var_seq[0],
+                            data=observed_data,
+                            nsamp=nsamp_mcwm)
+    model_exact = IPModelExact(prior=prior,
+                            data_noise_cov=sc.data_noise_var_seq[0],
+                            data=observed_data)
 else:
     model_fine = IPModelInexactFixHD(prior=prior,
                             data_noise_cov=sc.data_noise_var_seq[0],
                             data=observed_data,
                             nsamp=nsamp_pm)
+    model_coarse = IPModelInexactFixHD(prior=prior,
+                            data_noise_cov=sc.data_noise_var_seq[0],
+                            data=observed_data,
+                            nsamp=nsamp_mcwm)
+    model_exact = IPModelExactHD(prior=prior,
+                            data_noise_cov=sc.data_noise_var_seq[0],
+                            data=observed_data)
 
 x0 = ThetaParticles(theta=prior.rvs(size=1))
 x0_coarse = x0.copy()
 x0_fine = x0.copy()
+x0_exact = x0.copy()
 # If size > 1 (in ThetaParticles(theta=prior.rvs(size=1))), then the code
 # concatenates the results in some way, don't use for now
 
@@ -53,26 +68,25 @@ aux_temp_alg_fine = Tempering(model=model_fine, exponents=np.array([0., 1.]))
 target_fine = Tempering.current_target(aux_temp_alg_fine, 1.)
 target_fine(x0_fine)
 
-if len(sc.ground_truth_par) == 1:
-    model_coarse = IPModelInexactFix(prior=prior,
-                            data_noise_cov=sc.data_noise_var_seq[0],
-                            data=observed_data,
-                            nsamp=nsamp_mcwm)
-else:
-    model_coarse = IPModelInexactFixHD(prior=prior,
-                            data_noise_cov=sc.data_noise_var_seq[0],
-                            data=observed_data,
-                            nsamp=nsamp_mcwm)
-
 aux_temp_alg_coarse = Tempering(model=model_coarse, exponents=np.array([0., 1.]))
 # Some exponents have to be here, but not relevant which ones
-
 target_coarse = Tempering.current_target(aux_temp_alg_coarse, 1.)
 target_coarse(x0_coarse) #Initialise likelihood for the starting point
 
+aux_temp_alg_exact = Tempering(model=model_exact, exponents=np.array([0., 1.]))
+target_exact = Tempering.current_target(aux_temp_alg_exact, 1.)
+target_exact(x0_exact)
+
 pmmcmc = MCMCSequenceWF(mcmc=RWUncalibrated(), len_chain=len_chain)
 mcwm = MCMCSequenceWF(mcmc=NoisyMetropolis(), len_chain=len_chain)
+mrw = MCMCSequenceWF(mcmc=RWUncalibrated(), len_chain=len_chain)
 
+print("Running exact MRW...")
+samp_mrw = mrw(x=x0_exact, target=target_exact)
+mrw_acc_rate = np.mean(samp_mrw.shared['acc_rates'][0])
+samp_mrw = samp_mrw.theta['param']
+samp_mrw = samp_mrw[burn_in::thinning_step]
+print(f"Exact MRW finished. Acc rate: {mrw_acc_rate}")
 print("Running pseudo-marginal MCMC...")
 samp_pm = pmmcmc(x=x0_fine, target=target_fine)
 pm_acc_rate = np.mean(samp_pm.shared['acc_rates'][0])
