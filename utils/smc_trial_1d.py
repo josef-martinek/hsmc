@@ -2,16 +2,18 @@
 import numpy as np
 import time
 from particles import smc_samplers as ssp
-from core.samplers import TempAdaptNsampNoRew, TempAdaptNsampRew, TempAdaptNsampNoIS
+from core.samplers import TempAdaptNsampNoRew
 from particles.core import SMC
 import logging
 
-def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chain, Nmin, ar_tol, ESSrmin, nparticles, resample_move_end):
+def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chain, Nmin, ar_tol, ESSrmin, nparticles, resample_move_end, run_id=None, observed_data=None):
     #from problem_setup.heat_eq_ip.likelihood_model import IPModelInexactAdapt, IPModelInexactFix, IPModelExact
     from problem_setup.toy_problem.likelihood_model import IPModelExact, IPModelInexactFix, IPModelInexactAdapt
 
-    np.random.seed()  # Important for Ray workers TODO reproducibility?
-    observed_data = true_sol + np.random.normal(loc=0., scale=np.sqrt(data_noise_var), size=true_sol.shape)
+    if run_id is not None:
+        np.random.seed(seed=run_id)  # Important for Ray workers
+    if observed_data is None:
+        observed_data = true_sol + np.random.normal(loc=0., scale=np.sqrt(data_noise_var), size=true_sol.shape)
 
     model_inex_adapt = IPModelInexactAdapt(
         prior=prior,

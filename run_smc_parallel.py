@@ -13,8 +13,8 @@ from particles import distributions as dists
 # from problem_setup.heat_eq_ip.likelihood_model import HeatEqModel as ModelExact
 from problem_setup.toy_problem.problem_parameters import SamplerConfig as sc
 from problem_setup.toy_problem.likelihood_model import MatVecModel as ModelExact
-from smc_trial import run_single_smc_trial
-import smc_trial
+from utils.smc_trial_1d import run_single_smc_trial
+import utils.smc_trial_1d
 import utils.export_info as info
 
 if len(sc.ground_truth_par) > 1:
@@ -23,15 +23,19 @@ if len(sc.ground_truth_par) > 1:
 # -----------------------------
 # Config
 # -----------------------------
-#RESULTS_FOLDER = "data/smc_results_test"   # or info.create_results_folder()
-RESULTS_FOLDER = info.create_results_folder()
+RESULTS_FOLDER = "data/smc_results_test"   # or info.create_results_folder()
+#RESULTS_FOLDER = info.create_results_folder()
 #NUM_CPUS = int(os.environ.get("RAY_NUM_CPUS", "0"))  # 0 -> let Ray autodetect
 NUM_CPUS = 0
 SEED = 1111
 resample_move_end = False
+fix_observed_data = False
 
-# SMC hyperparameters
-N_runs = 100
+param_seq = sc.Nmin
+param_seq_name = "Nmin"
+
+# Nr of inference runs for each param in param_seq
+N_runs = 2
 
 # -----------------------------
 # Housekeeping / provenance
@@ -43,7 +47,10 @@ np.random.seed(SEED)
 # Export reproducibility info
 info.export_full_conda_env(target_folder=RESULTS_FOLDER)
 info.copy_problem_setup(target_folder=RESULTS_FOLDER, module=sc)
-info.copy_problem_setup(target_folder=RESULTS_FOLDER, module=smc_trial)
+if len(sc.ground_truth_par) == 1:
+    info.copy_problem_setup(target_folder=RESULTS_FOLDER, module=utils.smc_trial_1d)
+else:
+    raise NotImplementedError
 info.copy_problem_setup(target_folder=RESULTS_FOLDER, module=ModelExact)
 info.export_pip_requirements(target_folder=RESULTS_FOLDER)
 info.export_git_commit(target_folder=RESULTS_FOLDER)
@@ -65,7 +72,11 @@ prior = dists.StructDist({'param': dists.Normal(loc=0., scale=sc.prior_marg_var)
 gt = sc.ground_truth_par
 true_sol = ModelExact.exact_sol(gt).reshape(-1,1)  # fixed "truth" used by all trials
 
-data_noise_var_seq = sc.data_noise_var_seq
+observed_data = None
+if fix_observed_data:
+    if param_seq_name == "data_noise_var_seq":
+        logging.error("Observed data can be fixed only if their noise doesn't change")
+    observed_data = true_sol + np.random.normal(loc=0., scale=np.sqrt(sc.data_noise_var), size=true_sol.shape)
 
 # Storage (lists; will save as arrays)
 avg_runtimes_ansamp = []
@@ -103,34 +114,36 @@ def wrapped_trial(*args):
 # Submit ALL tasks up-front
 # -----------------------------
 submitted_refs = []
-ref_to_noise = {}
+ref_to_param = {}
 
 print("Submitting all Ray tasks...")
 submit_start = time.time()
 
-for noise_var in data_noise_var_seq:
+for param in param_seq:
     for run_idx in range(N_runs):
         ref = wrapped_trial.remote(
-            noise_var,
+            sc.data_noise_var,
             true_sol,
             prior,
             gt,
             sc.len_chain,
-            sc.Nmin,
+            param,
             sc.ar_tol,
             sc.ESS_rmin,
             sc.n_particles,
-            resample_move_end
+            resample_move_end,
+            run_idx,
+            observed_data
         )
         submitted_refs.append(ref)
-        ref_to_noise[ref] = noise_var
+        ref_to_param[ref] = param
 
 print(f"Submitted {len(submitted_refs)} tasks in {time.time() - submit_start:.2f}s.")
 
 # -----------------------------
 # Collect results as they finish
 # -----------------------------
-results_by_noise = defaultdict(list)
+results_by_param = defaultdict(list)
 
 pending = set(submitted_refs)
 n_done = 0
@@ -142,11 +155,11 @@ while pending:
     # Wait for next finished task
     ready, pending = ray.wait(list(pending), num_returns=1, timeout=None)
     ref = ready[0]
-    noise_var = ref_to_noise[ref]
+    param = ref_to_param[ref]
 
     # Get its result and store
     result = ray.get(ref)
-    results_by_noise[noise_var].append(result)
+    results_by_param[param].append(result)
 
     n_done += 1
     if n_done % max(1, total // 20) == 0 or n_done == total:
@@ -158,8 +171,8 @@ print(f"All results collected in {time.time() - t0:.2f}s.")
 # -----------------------------
 # Reduce to aggregates per noise level (in original order)
 # -----------------------------
-for noise_var in data_noise_var_seq:
-    res_list = results_by_noise[noise_var]
+for param in param_seq:
+    res_list = results_by_param[param]
     # Unpack tuples
     (
         runtimes_ansamp,
@@ -210,8 +223,8 @@ for noise_var in data_noise_var_seq:
 # -----------------------------
 np.savez(
     os.path.join(RESULTS_FOLDER, "smc_results.npz"),
-    data_noise_var_seq=data_noise_var_seq,
     n_runs=N_runs,
+    observed_data=observed_data, #Can be None
 
     avg_runtimes_ansamp=np.array(avg_runtimes_ansamp),
     avg_runtimes_fnsamp_ftemp=np.array(avg_runtimes_fnsamp_ftemp),
@@ -236,6 +249,9 @@ np.savez(
     avg_n_temp_steps_ansamp=np.array(avg_n_temp_steps_ansamp),
     avg_n_temp_steps_fnsamp_atemp=np.array(avg_n_temp_steps_fnsamp_atemp),
     avg_n_temp_steps_exact=np.array(avg_n_temp_steps_exact),
+
+    param_seq_name=param_seq_name,
+    **{param_seq_name: param_seq}
 )
 
 print(f"\nSaved results to {os.path.join(RESULTS_FOLDER, 'smc_results.npz')}")

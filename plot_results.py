@@ -8,12 +8,12 @@ markersize = 10
 linewidth = 2
 
 # === CONFIGURE PATH ===
-results_folder = "data/run_20250905-145609"
+results_folder = "data/smc_results_test"
 results_path = os.path.join(results_folder, "smc_results.npz")
 data = np.load(results_path)
 
 # === LOAD DATA ===
-noise_vars = data["data_noise_var_seq"]
+param_seq = data[f"{data["param_seq_name"]}"]
 n_runs = int(data["n_runs"])
 
 # Runtime (all 4 methods)
@@ -58,35 +58,35 @@ tempsteps_exact = data["avg_n_temp_steps_exact"]
 
 # 1. Runtime
 plt.figure(figsize=(6, 5))
-plt.plot(noise_vars, runtime_ansamp, 'o-', label="Adapt S, adapt temp", linewidth=linewidth, markersize=markersize)
-plt.plot(noise_vars, runtime_fnsamp_ftemp, '^-', label="Fixed #samples, fixed tempering", linewidth=linewidth, markersize=markersize)
-plt.plot(noise_vars, runtime_fnsamp_atemp, 's-', label="Fixed S, adapt temp", linewidth=linewidth, markersize=markersize)
-plt.plot(noise_vars, runtime_exact, 'd-', label="Exact", linewidth=linewidth, markersize=markersize)
+plt.plot(param_seq, runtime_ansamp, 'o-', label="Adapt S, adapt temp", linewidth=linewidth, markersize=markersize)
+plt.plot(param_seq, runtime_fnsamp_ftemp, '^-', label="Fixed #samples, fixed tempering", linewidth=linewidth, markersize=markersize)
+plt.plot(param_seq, runtime_fnsamp_atemp, 's-', label="Fixed S, adapt temp", linewidth=linewidth, markersize=markersize)
+plt.plot(param_seq, runtime_exact, 'd-', label="Exact", linewidth=linewidth, markersize=markersize)
 plt.xscale("log")
 plt.yscale("log")
-plt.xlabel("Observation noise variance $\sigma^2$", fontsize=fontsize)
+plt.xlabel(f"{data["param_seq_name"]}", fontsize=fontsize)
 plt.ylabel("Average Runtime (s)", fontsize=fontsize)
-plt.title("Runtime vs Noise Variance")
+plt.title(f"Runtime vs {data["param_seq_name"]}")
 plt.legend(fontsize=fontsize-3, loc='upper left')
 plt.grid(True)
 plt.tight_layout()
-plt.xlim(noise_vars[0], noise_vars[-1])
+#plt.xlim(param_seq[0], param_seq[-1])
 plt.savefig(os.path.join(results_folder, "plot_runtime.png"))
 
 # 2. Simulation cost
 plt.figure(figsize=(6, 5))
-plt.plot(noise_vars, cost_ansamp, 'o-', label="Ansamp")
-plt.plot(noise_vars, cost_fnsamp_ftemp, '^-', label="FNSamp FTemp")
-plt.plot(noise_vars, cost_fnsamp_atemp, 's-', label="FNSamp ATemp")
+plt.plot(param_seq, cost_ansamp, 'o-', label="Ansamp")
+plt.plot(param_seq, cost_fnsamp_ftemp, '^-', label="FNSamp FTemp")
+plt.plot(param_seq, cost_fnsamp_atemp, 's-', label="FNSamp ATemp")
 plt.xscale("log")
 plt.yscale("log")
-plt.xlabel("Observation noise variance $\sigma^2$")
+plt.xlabel(f"Observation {data["param_seq_name"]}")
 plt.ylabel("Average Simulated Cost")
-plt.title("Simulated Cost vs Noise Variance")
+plt.title(f"Simulated Cost vs {data["param_seq_name"]}")
 plt.legend(fontsize=fontsize)
 plt.grid(True)
 plt.tight_layout()
-plt.xlim(noise_vars[0], noise_vars[-1])
+#plt.xlim(param_seq[0], param_seq[-1])
 plt.savefig(os.path.join(results_folder, "plot_sim_cost.png"))
 
 def tail_loglog_slope(x, y, k=4):
@@ -112,9 +112,9 @@ def tail_loglog_slope(x, y, k=4):
 
 # Compute slopes for the three curves
 k=6
-s_a, se_a, (xa, ya), (m_a, b_a) = tail_loglog_slope(noise_vars, cost_ansamp, k=k)
-s_f, se_f, (xf, yf), (m_f, b_f) = tail_loglog_slope(noise_vars, cost_fnsamp_ftemp, k=k)
-s_t, se_t, (xt, yt), (m_t, b_t) = tail_loglog_slope(noise_vars, cost_fnsamp_atemp, k=k)
+s_a, se_a, (xa, ya), (m_a, b_a) = tail_loglog_slope(param_seq, cost_ansamp, k=k)
+s_f, se_f, (xf, yf), (m_f, b_f) = tail_loglog_slope(param_seq, cost_fnsamp_ftemp, k=k)
+s_t, se_t, (xt, yt), (m_t, b_t) = tail_loglog_slope(param_seq, cost_fnsamp_atemp, k=k)
 
 print(f"Ansamp slope (last 4): {s_a:.3f} ± {1.96*se_a:.3f}  (95% CI)")
 print(f"FNSamp FTemp slope (last 4): {s_f:.3f} ± {1.96*se_f:.3f}  (95% CI)")
@@ -122,55 +122,55 @@ print(f"FNSamp ATemp slope (last 4): {s_t:.3f} ± {1.96*se_t:.3f}  (95% CI)")
 
 # 3. MSE with CI
 plt.figure(figsize=(6, 5))
-plt.plot(noise_vars, mse_ansamp, 'o-', label="Adapt S, adapt. temp", linewidth=linewidth, markersize=markersize)
-plt.fill_between(noise_vars, ci_ansamp[0], ci_ansamp[1], alpha=0.2)
+plt.plot(param_seq, mse_ansamp, 'o-', label="Adapt S, adapt. temp", linewidth=linewidth, markersize=markersize)
+plt.fill_between(param_seq, ci_ansamp[0], ci_ansamp[1], alpha=0.2)
 
-plt.plot(noise_vars, mse_fnsamp_ftemp, '^-', label="Fixed #samples, fixed tempering", linewidth=linewidth, markersize=markersize)
-plt.fill_between(noise_vars, ci_fnsamp_ftemp[0], ci_fnsamp_ftemp[1], alpha=0.2)
+plt.plot(param_seq, mse_fnsamp_ftemp, '^-', label="Fixed #samples, fixed tempering", linewidth=linewidth, markersize=markersize)
+plt.fill_between(param_seq, ci_fnsamp_ftemp[0], ci_fnsamp_ftemp[1], alpha=0.2)
 
-plt.plot(noise_vars, mse_fnsamp_atemp, 's-', label="Fixed S, adapt. temp", linewidth=linewidth, markersize=markersize)
-plt.fill_between(noise_vars, ci_fnsamp_atemp[0], ci_fnsamp_atemp[1], alpha=0.2)
+plt.plot(param_seq, mse_fnsamp_atemp, 's-', label="Fixed S, adapt. temp", linewidth=linewidth, markersize=markersize)
+plt.fill_between(param_seq, ci_fnsamp_atemp[0], ci_fnsamp_atemp[1], alpha=0.2)
 
-plt.plot(noise_vars, mse_exact, 'd-', label="Exact HE sol, adapt temp", linewidth=linewidth, markersize=markersize)
-plt.fill_between(noise_vars, ci_exact[0], ci_exact[1], alpha=0.2)
+plt.plot(param_seq, mse_exact, 'd-', label="Exact HE sol, adapt temp", linewidth=linewidth, markersize=markersize)
+plt.fill_between(param_seq, ci_exact[0], ci_exact[1], alpha=0.2)
 
 plt.xscale("log")
 plt.yscale("log")
-plt.xlabel("Observation noise variance $\sigma^2$", fontsize=fontsize)
+plt.xlabel(f"{data["param_seq_name"]}", fontsize=fontsize)
 plt.ylabel("MSE on the ground truth", fontsize=fontsize)
-plt.title("MSE with 95% CI vs Noise Variance")
-plt.legend(fontsize=fontsize-3)
+plt.title(f"MSE with 95% CI vs {data["param_seq_name"]}")
 plt.grid(True)
 plt.tight_layout()
-plt.xlim(noise_vars[0], noise_vars[-1])
+plt.legend(fontsize=fontsize-3)
+#plt.xlim(param_seq[0], param_seq[-1])
 plt.savefig(os.path.join(results_folder, "plot_mse_ci.png"))
 
 # 4. Final nsamps for Ansamp
 plt.figure(figsize=(6, 5))
-plt.plot(noise_vars, avg_last_nsamps_ansamp, 'o-', label="Ansamp")
+plt.plot(param_seq, avg_last_nsamps_ansamp, 'o-', label="Ansamp")
 plt.xscale("log")
 plt.yscale("log")
-plt.xlabel("Observation noise variance ")
+plt.xlabel(f"{data["param_seq_name"]} ")
 plt.ylabel("Average final sample count")
 plt.title("Final Nsamps for Ansamp")
 plt.grid(True)
 plt.tight_layout()
 plt.legend(fontsize=fontsize)
-plt.xlim(noise_vars[0], noise_vars[-1])
+#plt.xlim(param_seq[0], param_seq[-1])
 plt.savefig(os.path.join(results_folder, "plot_last_nsamps.png"))
 
 # 5. Tempering steps
 plt.figure(figsize=(6, 5))
-plt.plot(noise_vars, tempsteps_ansamp, 'o-', label="Adaptive #samples, adaptive tempering")
-plt.plot(noise_vars, tempsteps_fnsamp_atemp, 's-', label="Fixed #samples, adaptive tempering")
-plt.plot(noise_vars, tempsteps_exact, 'd-', label="Analytic. HE sol., adaptive tempering")
+plt.plot(param_seq, tempsteps_ansamp, 'o-', label="Adaptive #samples, adaptive tempering")
+plt.plot(param_seq, tempsteps_fnsamp_atemp, 's-', label="Fixed #samples, adaptive tempering")
+plt.plot(param_seq, tempsteps_exact, 'd-', label="Analytic. HE sol., adaptive tempering")
 plt.xscale("log")
-plt.xlabel("Observation noise variance $\sigma^2$")
+plt.xlabel(f"{data["param_seq_name"]}")
 plt.ylabel("Average Tempering Steps used by the adaptive SMC alg.")
-plt.title("Tempering Steps vs Noise Variance")
+plt.title(f"Tempering Steps vs {data["param_seq_name"]}")
 plt.legend()
 plt.grid(True)
-plt.xlim(noise_vars[0], noise_vars[-1])
+#plt.xlim(param_seq[0], param_seq[-1])
 plt.tight_layout()
 plt.savefig(os.path.join(results_folder, "plot_tempering_steps.png"))
 
