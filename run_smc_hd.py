@@ -19,6 +19,8 @@ if not resample_move_end:
     logging.error("Posterior pair plot requires unweighted samples")
 
 if __name__ == "__main__":
+    if len(sc.ground_truth_par) == 1:
+        logging.error("This script is only for multi dimensional inference.")
 
     param_dim = len(sc.ground_truth_par)
     prior = dists.StructDist({'param': dists.MvNormal(loc=np.zeros(param_dim),

@@ -3,7 +3,7 @@ import os
 import time
 import shutil
 from collections import defaultdict
-
+import logging
 import numpy as np
 import ray
 
@@ -17,6 +17,8 @@ from smc_trial import run_single_smc_trial
 import smc_trial
 import utils.export_info as info
 
+if len(sc.ground_truth_par) > 1:
+    logging.error("This script is only for 1D inference.")
 
 # -----------------------------
 # Config
