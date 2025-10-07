@@ -63,6 +63,12 @@ if NUM_CPUS > 0:
 else:
     ray.init(ignore_reinit_error=True)  # auto-detect
 
+# Get cluster info
+resources = ray.cluster_resources()
+available_cpus = resources.get("CPU", 0)
+
+print(f"Ray initialized with {available_cpus} workers (CPUs) available.")
+
 
 # -----------------------------
 # Problem setup
