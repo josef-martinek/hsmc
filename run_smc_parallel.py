@@ -30,11 +30,11 @@ SEED = 1111
 resample_move_end = True
 fix_observed_data = True
 
-param_seq = sc.Nmin
-param_seq_name = "Nmin"
+param_seq = sc.len_chain
+param_seq_name = "mcmc_n_steps"
 
 # Nr of inference runs for each param in param_seq
-N_runs = 50
+N_runs = 100
 
 # -----------------------------
 # Housekeeping / provenance
@@ -139,8 +139,8 @@ for param in param_seq:
             true_sol,
             prior,
             gt,
-            sc.len_chain,
             param,
+            sc.Nmin,
             sc.ar_tol,
             sc.ESS_rmin,
             sc.n_particles,
