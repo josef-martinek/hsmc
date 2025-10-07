@@ -39,10 +39,10 @@ def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chai
 
     exponents = my_temp_alg.X.shared['exponents']
     if resample_move_end:
-        estimated_mean_adapt = np.average(my_temp_alg.X.theta['param'], axis=0)
+        estimated_mean_ansamp = np.average(my_temp_alg.X.theta['param'], axis=0)
     else:
-        estimated_mean_adapt = np.average(my_temp_alg.X.theta['param'], weights=my_temp_alg.W, axis=0)
-    mse_ansamp = np.linalg.norm(estimated_mean_adapt - ground_truth) ** 2
+        estimated_mean_ansamp = np.average(my_temp_alg.X.theta['param'], weights=my_temp_alg.W, axis=0)
+    mse_ansamp = np.linalg.norm(estimated_mean_ansamp - ground_truth) ** 2
     nsamp_last_ansamp = tempering.solver_nsamp[-1]
     n_temp_steps_ansamp = my_temp_alg.t
     
@@ -80,10 +80,10 @@ def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chai
     runtime_fnsamp_ftemp = time.time() - start_time
 
     if resample_move_end:
-        estimated_mean_fixed = np.average(temp_fixed_alg.X.theta['param'], axis=0)
+        estimated_mean_fnsamp_ftemp = np.average(temp_fixed_alg.X.theta['param'], axis=0)
     else:
-        estimated_mean_fixed = np.average(temp_fixed_alg.X.theta['param'], weights=temp_fixed_alg.W, axis=0)
-    mse_fnsamp_ftemp = np.linalg.norm(estimated_mean_fixed - ground_truth) ** 2
+        estimated_mean_fnsamp_ftemp = np.average(temp_fixed_alg.X.theta['param'], weights=temp_fixed_alg.W, axis=0)
+    mse_fnsamp_ftemp = np.linalg.norm(estimated_mean_fnsamp_ftemp - ground_truth) ** 2
 
     model_fnsamp_atemp = IPModelInexactFix(
         prior=prior,
@@ -139,13 +139,14 @@ def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chai
         temp_alg.resample_move()
     runtime_exact = time.time() - start_time
     if resample_move_end:
-        estimated_mean_fnsamp_atemp = np.average(temp_alg.X.theta['param'], axis=0)
+        estimated_mean_exact = np.average(temp_alg.X.theta['param'], axis=0)
     else:
-        estimated_mean_fnsamp_atemp = np.average(temp_alg.X.theta['param'], weights=temp_alg.W, axis=0)
-    mse_exact = np.linalg.norm(estimated_mean_fnsamp_atemp - ground_truth)**2
+        estimated_mean_exact = np.average(temp_alg.X.theta['param'], weights=temp_alg.W, axis=0)
+    mse_exact = np.linalg.norm(estimated_mean_exact - ground_truth)**2
     n_temp_steps_exact = temp_alg.t
 
     return (runtime_ansamp, runtime_fnsamp_ftemp, runtime_fnsamp_atemp, runtime_exact, 
             mse_ansamp, mse_fnsamp_ftemp, mse_fnsamp_atemp, mse_exact,
             sim_cost_ansamp, sim_cost_fnsamp_ftemp, sim_cost_fnsamp_atemp,
-            nsamp_last_ansamp, n_temp_steps_ansamp, n_temp_steps_fsamp_atemp, n_temp_steps_exact)
+            nsamp_last_ansamp, n_temp_steps_ansamp, n_temp_steps_fsamp_atemp, n_temp_steps_exact,
+            estimated_mean_ansamp, estimated_mean_fnsamp_ftemp, estimated_mean_fnsamp_atemp, estimated_mean_exact)

@@ -107,6 +107,15 @@ avg_n_temp_steps_ansamp = []
 avg_n_temp_steps_fnsamp_atemp = []
 avg_n_temp_steps_exact = []
 
+post_mean_val_ansamp = []
+post_mean_val_fnsamp_ftemp = []
+post_mean_val_fnsamp_atemp = []
+post_mean_val_exact = []
+
+post_mean_stddev_ansamp = []
+post_mean_stddev_fnsamp_ftemp = []
+post_mean_stddev_fnsamp_atemp = []
+post_mean_stddev_exact = []
 
 @ray.remote
 def wrapped_trial(*args):
@@ -194,9 +203,18 @@ for param in param_seq:
         n_temp_steps_ansamp,
         n_temp_fnsamp_atemp,
         n_temp_exact,
+        post_means_ansamp,
+        post_means_fnsamp_ftemp,
+        post_means_fnsamp_atemp,
+        post_means_exact
     ) = zip(*res_list)
 
     # Means
+    post_mean_val_ansamp.append(np.mean(post_means_ansamp, axis=0))
+    post_mean_val_fnsamp_ftemp.append(np.mean(post_means_fnsamp_ftemp, axis=0))
+    post_mean_val_fnsamp_atemp.append(np.mean(post_means_fnsamp_atemp, axis=0))
+    post_mean_val_exact.append(np.mean(post_means_exact, axis=0))
+
     avg_runtimes_ansamp.append(np.mean(runtimes_ansamp))
     avg_runtimes_fnsamp_ftemp.append(np.mean(runtimes_fnsamp_ftemp))
     avg_runtimes_fnsamp_atemp.append(np.mean(runtimes_fnsamp_atemp))
@@ -212,6 +230,20 @@ for param in param_seq:
     mse_values_exact.append(np.mean(mse_exact))
 
     # Std dev across runs (ddof=1)
+
+    post_mean_stddev_ansamp.append(np.std(post_means_ansamp,
+                                          axis=0,
+                                          ddof=1))
+    post_mean_stddev_fnsamp_ftemp.append(np.std(post_means_fnsamp_ftemp,
+                                                axis=0,
+                                                ddof=1))
+    post_mean_stddev_fnsamp_atemp.append(np.std(post_means_fnsamp_atemp,
+                                                axis=0,
+                                                ddof=1))
+    post_mean_stddev_exact.append(np.std(post_means_exact,
+                                         axis=0,
+                                         ddof=1))
+
     mse_stddev_ansamp.append(np.std(mse_ansamp, ddof=1))
     mse_stddev_fnsamp_ftemp.append(np.std(mse_fnsamp_ftemp, ddof=1))
     mse_stddev_fnsamp_atemp.append(np.std(mse_fnsamp_atemp, ddof=1))
@@ -253,6 +285,16 @@ np.savez(
     avg_n_temp_steps_ansamp=np.array(avg_n_temp_steps_ansamp),
     avg_n_temp_steps_fnsamp_atemp=np.array(avg_n_temp_steps_fnsamp_atemp),
     avg_n_temp_steps_exact=np.array(avg_n_temp_steps_exact),
+
+    post_mean_val_ansamp=np.array(post_mean_val_ansamp),
+    post_mean_val_fnsamp_ftemp=np.array(post_mean_val_fnsamp_ftemp),
+    post_mean_val_fnsamp_atemp=np.array(post_mean_val_fnsamp_atemp),
+    post_mean_val_exact=np.array(post_mean_val_exact),
+
+    post_mean_stddev_ansamp=np.array(post_mean_stddev_ansamp),
+    post_mean_stddev_fnsamp_ftemp=np.array(post_mean_stddev_fnsamp_ftemp),
+    post_mean_stddev_fnsamp_atemp=np.array(post_mean_stddev_fnsamp_atemp),
+    post_mean_stddev_exact=np.array(post_mean_stddev_exact),
 
     param_seq_name=param_seq_name,
     **{param_seq_name: param_seq}

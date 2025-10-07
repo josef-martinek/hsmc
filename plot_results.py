@@ -38,6 +38,16 @@ std_fnsamp_ftemp = data["mse_stddev_fnsamp_ftemp"]
 std_fnsamp_atemp = data["mse_stddev_fnsamp_atemp"]
 std_exact = data["mse_stddev_exact"]
 
+post_mean_ansamp = data["post_mean_val_ansamp"]
+post_mean_fnsamp_ftemp = data["post_mean_val_fnsamp_ftemp"]
+post_mean_fnsamp_atemp = data["post_mean_val_fnsamp_atemp"]
+post_mean_exact = data["post_mean_val_exact"]
+
+post_mean_stddev_ansamp = data["post_mean_stddev_ansamp"]
+post_mean_stddev_fnsamp_ftemp = data["post_mean_stddev_fnsamp_ftemp"]
+post_mean_stddev_fnsamp_atemp = data["post_mean_stddev_fnsamp_atemp"]
+post_mean_stddev_exact = data["post_mean_stddev_exact"]
+
 # Compute 95% confidence intervals
 def confidence_interval(mean, std, n):
     delta = 1.96 * std / np.sqrt(n)
@@ -131,7 +141,7 @@ plt.fill_between(param_seq, ci_fnsamp_ftemp[0], ci_fnsamp_ftemp[1], alpha=0.2)
 plt.plot(param_seq, mse_fnsamp_atemp, 's-', label="Fixed S, adapt. temp", linewidth=linewidth, markersize=markersize)
 plt.fill_between(param_seq, ci_fnsamp_atemp[0], ci_fnsamp_atemp[1], alpha=0.2)
 
-plt.plot(param_seq, mse_exact, 'd-', label="Exact HE sol, adapt temp", linewidth=linewidth, markersize=markersize)
+plt.plot(param_seq, mse_exact, 'd-', label="Exact sol, adapt temp", linewidth=linewidth, markersize=markersize)
 plt.fill_between(param_seq, ci_exact[0], ci_exact[1], alpha=0.2)
 
 plt.xscale("log")
@@ -163,7 +173,7 @@ plt.savefig(os.path.join(results_folder, "plot_last_nsamps.png"))
 plt.figure(figsize=(6, 5))
 plt.plot(param_seq, tempsteps_ansamp, 'o-', label="Adaptive #samples, adaptive tempering")
 plt.plot(param_seq, tempsteps_fnsamp_atemp, 's-', label="Fixed #samples, adaptive tempering")
-plt.plot(param_seq, tempsteps_exact, 'd-', label="Analytic. HE sol., adaptive tempering")
+plt.plot(param_seq, tempsteps_exact, 'd-', label="Exact sol., adaptive tempering")
 plt.xscale("log")
 plt.xlabel(f"{data["param_seq_name"]}")
 plt.ylabel("Average Tempering Steps used by the adaptive SMC alg.")
@@ -173,5 +183,53 @@ plt.grid(True)
 #plt.xlim(param_seq[0], param_seq[-1])
 plt.tight_layout()
 plt.savefig(os.path.join(results_folder, "plot_tempering_steps.png"))
+
+# 6. Posterior mean first component
+
+# --- Extract first component of posterior mean from each run ---
+def extract_first_component(arr):
+    """Convert list/array of arrays into 1D array of their first components."""
+    return np.array([a[0] for a in arr])
+
+post_mean_ansamp_first = extract_first_component(post_mean_ansamp)
+post_mean_fnsamp_ftemp_first = extract_first_component(post_mean_fnsamp_ftemp)
+post_mean_fnsamp_atemp_first = extract_first_component(post_mean_fnsamp_atemp)
+post_mean_exact_first = extract_first_component(post_mean_exact)
+
+post_mean_stddev_ansamp_first = extract_first_component(post_mean_stddev_ansamp)
+post_mean_stddev_fnsamp_ftemp_first = extract_first_component(post_mean_stddev_fnsamp_ftemp)
+post_mean_stddev_fnsamp_atemp_first = extract_first_component(post_mean_stddev_fnsamp_atemp)
+post_mean_stddev_exact_first = extract_first_component(post_mean_stddev_exact)
+
+# --- Compute CIs for each method ---
+ci_ansamp = confidence_interval(post_mean_ansamp_first, post_mean_stddev_ansamp_first, n_runs)
+ci_fnsamp_ftemp = confidence_interval(post_mean_fnsamp_ftemp_first, post_mean_stddev_fnsamp_ftemp_first, n_runs)
+ci_fnsamp_atemp = confidence_interval(post_mean_fnsamp_atemp_first, post_mean_stddev_fnsamp_atemp_first, n_runs)
+ci_exact = confidence_interval(post_mean_exact_first, post_mean_stddev_exact_first, n_runs)
+
+# --- Plot ---
+plt.figure(figsize=(6, 5))
+
+plt.plot(param_seq, post_mean_ansamp_first, 'o-', label="Adapt S, adapt. temp", linewidth=linewidth, markersize=markersize)
+plt.fill_between(param_seq, ci_ansamp[0], ci_ansamp[1], alpha=0.2)
+
+plt.plot(param_seq, post_mean_fnsamp_ftemp_first, '^-', label="Fixed #samples, fixed tempering", linewidth=linewidth, markersize=markersize)
+plt.fill_between(param_seq, ci_fnsamp_ftemp[0], ci_fnsamp_ftemp[1], alpha=0.2)
+
+plt.plot(param_seq, post_mean_fnsamp_atemp_first, 's-', label="Fixed S, adapt. temp", linewidth=linewidth, markersize=markersize)
+plt.fill_between(param_seq, ci_fnsamp_atemp[0], ci_fnsamp_atemp[1], alpha=0.2)
+
+plt.plot(param_seq, post_mean_exact_first, 'd-', label="Exact sol, adapt temp", linewidth=linewidth, markersize=markersize)
+plt.fill_between(param_seq, ci_exact[0], ci_exact[1], alpha=0.2)
+
+plt.xscale("log")
+plt.xlabel(f"{data['param_seq_name']}", fontsize=fontsize)
+plt.ylabel("Posterior mean (1st component)", fontsize=fontsize)
+plt.title(f"First posterior mean component with 95% CI vs {data['param_seq_name']}")
+plt.grid(True)
+plt.tight_layout()
+plt.legend(fontsize=fontsize - 3)
+
+plt.savefig(os.path.join(results_folder, "plot_postmean_first_ci.png"))
 
 plt.show()
