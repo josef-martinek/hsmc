@@ -30,22 +30,22 @@ if __name__ == "__main__":
     true_sol = ModelExact.exact_sol(sc.ground_truth_par).reshape(-1,1)
     #true_sol = ModelExact.exact_binned_sol(sc.ground_truth_par)
     observed_data = true_sol + np.random.normal(loc=0., 
-                                                scale=np.sqrt(sc.data_noise_var_seq[0]), 
+                                                scale=np.sqrt(sc.data_noise_var), 
                                                 size=true_sol.shape)
 
     # model = IPModelExactHD(prior=prior, 
-    #                            data_noise_cov=sc.data_noise_var_seq[0], 
+    #                            data_noise_cov=sc.data_noise_var, 
     #                            data=observed_data)
     # model = IPModelInexactFixHD(prior=prior, 
-    #                                   data_noise_cov=sc.data_noise_var_seq[0], 
+    #                                   data_noise_cov=sc.data_noise_var, 
     #                                   data=observed_data,
     #                                   nsamp=1000)
     model = IPModelInexactAdaptHD(prior=prior,
-                                data_noise_cov=sc.data_noise_var_seq[0],
+                                data_noise_cov=sc.data_noise_var,
                                 data=observed_data)
 
-    #fk_tempering = ssp.AdaptiveTempering(model=model, wastefree=False, len_chain=sc.len_chain, ESSrmin=0.7)
-    fk_tempering = TempAdaptNsampNoRew(Nmin=100, ar_tol=0.35, model=model, wastefree=False, len_chain=sc.len_chain, ESSrmin=0.7)
+    #fk_tempering = ssp.AdaptiveTempering(model=model, wastefree=False, len_chain=sc.len_chain, ESSrmin=sc.ESS_rmin)
+    fk_tempering = TempAdaptNsampNoRew(Nmin=sc.Nmin[0], ar_tol=sc.ar_tol, model=model, wastefree=False, len_chain=sc.len_chain, ESSrmin=sc.ESS_rmin)
 
     my_temp_alg = SMC(fk=fk_tempering, N=sc.n_particles, ESSrmin=1., 
                                 verbose=True)

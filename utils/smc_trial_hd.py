@@ -1,19 +1,19 @@
-# smc_trial.py
 import numpy as np
 import time
 from particles import smc_samplers as ssp
-from core.samplers import TempAdaptNsampNoRew, TempAdaptNsampRew, TempAdaptNsampNoIS
+from core.samplers import TempAdaptNsampNoRew
 from particles.core import SMC
 import logging
 
-def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chain, Nmin, ar_tol, ESSrmin, nparticles, resample_move_end):
-    #from problem_setup.heat_eq_ip.likelihood_model import IPModelInexactAdapt, IPModelInexactFix, IPModelExact
-    from problem_setup.toy_problem.likelihood_model import IPModelExact, IPModelInexactFix, IPModelInexactAdapt
+def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chain, Nmin, ar_tol, ESSrmin, nparticles, resample_move_end, run_id=None, observed_data=None):
+    from problem_setup.toy_problem.likelihood_model import IPModelExactHD, IPModelInexactFixHD, IPModelInexactAdaptHD
 
-    np.random.seed()  # Important for Ray workers TODO reproducibility?
-    observed_data = true_sol + np.random.normal(loc=0., scale=np.sqrt(data_noise_var), size=true_sol.shape)
+    if run_id is not None:
+        np.random.seed(seed=run_id)  # Important for Ray workers
+    if observed_data is None:
+        observed_data = true_sol + np.random.normal(loc=0., scale=np.sqrt(data_noise_var), size=true_sol.shape)
 
-    model_inex_adapt = IPModelInexactAdapt(
+    model_inex_adapt = IPModelInexactAdaptHD(
         prior=prior,
         data_noise_cov=data_noise_var,
         data=observed_data
@@ -38,10 +38,10 @@ def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chai
 
     exponents = my_temp_alg.X.shared['exponents']
     if resample_move_end:
-        estimated_mean_adapt = np.average(my_temp_alg.X.theta['param'], axis=0)
+        estimated_mean_ansamp = np.average(my_temp_alg.X.theta['param'], axis=0)
     else:
-        estimated_mean_adapt = np.average(my_temp_alg.X.theta['param'], weights=my_temp_alg.W, axis=0)
-    mse_ansamp = np.linalg.norm(estimated_mean_adapt - ground_truth) ** 2
+        estimated_mean_ansamp = np.average(my_temp_alg.X.theta['param'], weights=my_temp_alg.W, axis=0)
+    mse_ansamp = np.linalg.norm(estimated_mean_ansamp - ground_truth) ** 2
     nsamp_last_ansamp = tempering.solver_nsamp[-1]
     n_temp_steps_ansamp = my_temp_alg.t
     
@@ -56,7 +56,7 @@ def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chai
         sim_cost_ansamp = sum(tempering.solver_nsamp[1:-1])
         sim_cost_fnsamp_ftemp = nsamp_last_ansamp * (my_temp_alg.t-1)
 
-    model_inex_fix = IPModelInexactFix(
+    model_inex_fix = IPModelInexactFixHD(
         prior=prior,
         data_noise_cov=data_noise_var,
         data=observed_data,
@@ -79,12 +79,12 @@ def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chai
     runtime_fnsamp_ftemp = time.time() - start_time
 
     if resample_move_end:
-        estimated_mean_fixed = np.average(temp_fixed_alg.X.theta['param'], axis=0)
+        estimated_mean_fnsamp_ftemp = np.average(temp_fixed_alg.X.theta['param'], axis=0)
     else:
-        estimated_mean_fixed = np.average(temp_fixed_alg.X.theta['param'], weights=temp_fixed_alg.W, axis=0)
-    mse_fnsamp_ftemp = np.linalg.norm(estimated_mean_fixed - ground_truth) ** 2
+        estimated_mean_fnsamp_ftemp = np.average(temp_fixed_alg.X.theta['param'], weights=temp_fixed_alg.W, axis=0)
+    mse_fnsamp_ftemp = np.linalg.norm(estimated_mean_fnsamp_ftemp - ground_truth) ** 2
 
-    model_fnsamp_atemp = IPModelInexactFix(
+    model_fnsamp_atemp = IPModelInexactFixHD(
         prior=prior,
         data_noise_cov=data_noise_var,
         data=observed_data,
@@ -117,7 +117,7 @@ def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chai
     n_temp_steps_fsamp_atemp = temp_alg.t
 
 
-    model_exact = IPModelExact(
+    model_exact = IPModelExactHD(
         prior=prior,
         data_noise_cov=data_noise_var,
         data=observed_data
@@ -138,13 +138,14 @@ def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chai
         temp_alg.resample_move()
     runtime_exact = time.time() - start_time
     if resample_move_end:
-        estimated_mean_fnsamp_atemp = np.average(temp_alg.X.theta['param'], axis=0)
+        estimated_mean_exact = np.average(temp_alg.X.theta['param'], axis=0)
     else:
-        estimated_mean_fnsamp_atemp = np.average(temp_alg.X.theta['param'], weights=temp_alg.W, axis=0)
-    mse_exact = np.linalg.norm(estimated_mean_fnsamp_atemp - ground_truth)**2
+        estimated_mean_exact = np.average(temp_alg.X.theta['param'], weights=temp_alg.W, axis=0)
+    mse_exact = np.linalg.norm(estimated_mean_exact - ground_truth)**2
     n_temp_steps_exact = temp_alg.t
 
     return (runtime_ansamp, runtime_fnsamp_ftemp, runtime_fnsamp_atemp, runtime_exact, 
             mse_ansamp, mse_fnsamp_ftemp, mse_fnsamp_atemp, mse_exact,
             sim_cost_ansamp, sim_cost_fnsamp_ftemp, sim_cost_fnsamp_atemp,
-            nsamp_last_ansamp, n_temp_steps_ansamp, n_temp_steps_fsamp_atemp, n_temp_steps_exact)
+            nsamp_last_ansamp, n_temp_steps_ansamp, n_temp_steps_fsamp_atemp, n_temp_steps_exact,
+            estimated_mean_ansamp, estimated_mean_fnsamp_ftemp, estimated_mean_fnsamp_atemp, estimated_mean_exact)
