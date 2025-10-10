@@ -11,6 +11,9 @@ class TempAdaptNsampRew(AdaptiveTempering):
 
     def logG(self, t, xp, x):
         epn = x.shared['exponents'][-1]
+        isStart = np.allclose(epn, 0.)
+        if isStart:
+            x.shared["solver_nsamp"] = [self.solver_nsamp[0]]
         new_epn = next_annealing_epn(epn, self.ESSrmin, x.llik)
         x.shared['exponents'].append(new_epn)
 
@@ -19,10 +22,13 @@ class TempAdaptNsampRew(AdaptiveTempering):
         except (KeyError, IndexError):
             mean_ar = 1.0
         if mean_ar < self.ar_tol:
-            self.solver_nsamp.append(self.solver_nsamp[-1]*2)
-            #print(f"Solver nsamp for tempering exponent {epn}: {self.solver_nsamp[-1]}")
+            last_nsamp = self.solver_nsamp[-1]
+            self.solver_nsamp.append(last_nsamp*2)
+            x.shared["solver_nsamp"].append(last_nsamp*2)
         else:
-            self.solver_nsamp.append(self.solver_nsamp[-1])
+            last_nsamp = self.solver_nsamp[-1]
+            self.solver_nsamp.append(last_nsamp)
+            x.shared["solver_nsamp"].append(last_nsamp)
 
         return self.logG_tempering(x, new_epn - epn)
     
