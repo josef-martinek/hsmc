@@ -32,19 +32,22 @@ if __name__ == "__main__":
                                                 scale=np.sqrt(sc.data_noise_var),
                                                 size=true_sol.shape)
 
+    # Set up DA
+    len_coarse_chain = 10
+    len_fine_chain = 20
+    fine_over_coarse_nsamp = 20
     model_fine = IPModelInexactAdaptHD(prior=prior,
                                 data_noise_cov=sc.data_noise_var,
                                 data=observed_data)
     model_coarse = IPModelInexactAdaptHD(prior=prior,
                                          data_noise_cov=sc.data_noise_var,
                                          data=observed_data)
-    mcmc_coarse = NoisyMetropolisCal() #this should be a different chain
-    chain_coarse = AdaptiveMCMCSequence(mcmc=mcmc_coarse, len_chain=3)
-    mcmc_transition = DA(coarse_chain=chain_coarse,
+    mcmc_coarse = NoisyMetropolisCal()
+    chain_coarse = AdaptiveMCMCSequence(mcmc=mcmc_coarse, len_chain=len_coarse_chain)
+    da_step = DA(coarse_chain=chain_coarse,
                          coarse_model=model_coarse,
-                         fine_over_coarse=5)
-    len_fine_chain = 5 #TODO test this
-    chain_fine = AdaptiveMCMCSequence(mcmc=mcmc_transition,
+                         fine_over_coarse=fine_over_coarse_nsamp)
+    chain_da = AdaptiveMCMCSequence(mcmc=da_step,
                                       len_chain=len_fine_chain)
 
     fk_tempering = TempAdaptNsampNoRew(Nmin=sc.Nmin,
@@ -52,7 +55,7 @@ if __name__ == "__main__":
                                        model=model_fine,
                                        wastefree=False,
                                        ESSrmin=sc.ESS_rmin,
-                                       move=chain_fine)
+                                       move=chain_da)
 
     my_temp_alg = SMC(fk=fk_tempering, N=sc.n_particles, ESSrmin=1., 
                                 verbose=True)
