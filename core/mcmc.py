@@ -88,8 +88,25 @@ class DA(ArrayMCMC):
         if np.allclose(x.theta['param'], xprop.theta['param']):
             pb_acc = np.ones_like(xprop.lpost)
         else:
+
+            # TODO there are two ways to implement this (with and without reeval). 
+            # So far this additional cost
+            # not taken into account in the cost model.
+            x_c = x.copy()
+            xprop_c = xprop.copy()
+            n_eval = 100
+            x_c_marg_lpost = 0
+            xprop_c_marg_lpost = 0
+            for i in range(n_eval):
+                self.coarse_target(x_c)
+                self.coarse_target(xprop_c)
+                x_c_marg_lpost += x_c.lpost
+                xprop_c_marg_lpost += xprop_c.lpost
+            x_c_marg_lpost = x_c_marg_lpost/n_eval
+            xprop_c_marg_lpost = xprop_c_marg_lpost/n_eval
+
             target_fine(xprop)
-            lp_acc = xprop.lpost - x.lpost
+            lp_acc = xprop.lpost - x.lpost + x_c_marg_lpost - xprop_c_marg_lpost
             pb_acc = np.exp(np.clip(lp_acc, None, 0.0))
         mean_acc = np.mean(pb_acc)
         accept = random.rand(x.N) < pb_acc
