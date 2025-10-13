@@ -1,7 +1,7 @@
 import numpy as np
 from particles import distributions as dists
 from core.samplers import TempAdaptNsampNoRew
-from core.mcmc import DA, NoisyMetropolisCal
+from core.mcmc import DA, NoisyMetropolisCal, TwoStageMCMC
 from particles.smc_samplers import AdaptiveMCMCSequence, ArrayRandomWalk
 from particles.core import SMC
 from problem_setup.toy_problem.problem_parameters import SamplerConfig as sc
@@ -33,9 +33,9 @@ if __name__ == "__main__":
                                                 size=true_sol.shape)
 
     # Set up DA
-    len_coarse_chain = 10
-    len_fine_chain = 20
-    fine_over_coarse_nsamp = 20
+    len_coarse_chain = 0
+    len_fine_chain = 10
+    fine_over_coarse_nsamp = 10
     model_fine = IPModelInexactAdaptHD(prior=prior,
                                 data_noise_cov=sc.data_noise_var,
                                 data=observed_data)
@@ -43,19 +43,20 @@ if __name__ == "__main__":
                                          data_noise_cov=sc.data_noise_var,
                                          data=observed_data)
     mcmc_coarse = NoisyMetropolisCal()
-    chain_coarse = AdaptiveMCMCSequence(mcmc=mcmc_coarse, len_chain=len_coarse_chain)
-    da_step = DA(coarse_chain=chain_coarse,
-                         coarse_model=model_coarse,
-                         fine_over_coarse=fine_over_coarse_nsamp)
-    chain_da = AdaptiveMCMCSequence(mcmc=da_step,
-                                      len_chain=len_fine_chain)
+    mcmc_fine = ArrayRandomWalk()
+    two_stage_chain = TwoStageMCMC(mcmc1=mcmc_coarse,
+                                   mcmc2=mcmc_fine,
+                                   len_chain1=len_coarse_chain,
+                                   len_chain2=len_fine_chain,
+                                   coarse_model=model_coarse,
+                                   fine_over_coarse=fine_over_coarse_nsamp)
 
     fk_tempering = TempAdaptNsampNoRew(Nmin=sc.Nmin,
                                        ar_tol=sc.ar_tol,
                                        model=model_fine,
                                        wastefree=False,
                                        ESSrmin=sc.ESS_rmin,
-                                       move=chain_da)
+                                       move=two_stage_chain)
 
     my_temp_alg = SMC(fk=fk_tempering, N=sc.n_particles, ESSrmin=1., 
                                 verbose=True)

@@ -1,5 +1,5 @@
 from particles.smc_samplers import ArrayMetropolis, ArrayRandomWalk, ArrayMCMC, view_2d_array
-from particles.smc_samplers import AdaptiveMCMCSequence
+from particles.smc_samplers import AdaptiveMCMCSequence, MCMCSequence
 from particles import resampling as rs
 import numpy as np
 from scipy import stats, linalg
@@ -117,3 +117,53 @@ class DA(ArrayMCMC):
         xin = x.copy()
         xprop = self.coarse_chain(xin, target=target)
         return xprop
+
+
+class TwoStageMCMC(MCMCSequence):
+
+    def __init__(self,
+                 mcmc1=None,
+                 len_chain1=10,
+                 mcmc2=None,
+                 len_chain2=10,
+                 coarse_model=None,
+                 fine_over_coarse=10):
+        self.mcmc1 = ArrayRandomWalk() if mcmc1 is None else mcmc1
+        self.nsteps1 = len_chain1 - 1
+        self.mcmc2 = ArrayRandomWalk() if mcmc2 is None else mcmc2
+        self.nsteps2 = len_chain2 - 1
+        self.coarse_model = coarse_model
+        self.fine_over_coarse = fine_over_coarse
+        self.coarse_target = None
+
+    def calibrate(self, W, x):
+        nsamp_fine = x.shared["solver_nsamp"][-1]
+        epn = x.shared["exponents"][-1]
+        self.coarse_model.nsamp = nsamp_fine / self.fine_over_coarse
+
+        def func(x_aux):
+            x_aux.lprior = self.coarse_model.prior.logpdf(x_aux.theta)
+            x_aux.llik = self.coarse_model.loglik(x_aux.theta)
+            if epn > 0.0:
+                x_aux.lpost = x_aux.lprior + epn * x_aux.llik
+            else:  # avoid having 0 x Nan
+                x_aux.lpost = x_aux.lprior.copy()
+
+        self.coarse_target = func
+
+        self.mcmc2.calibrate(W, x)
+
+    def __call__(self, x, target_fine):
+        xout = x.copy()
+        ars = []
+        for _ in range(self.nsteps1):
+            self.coarse_target(xout)
+            ar = self.mcmc1.step(xout, self.coarse_target)
+            #print("MCWM ar:", ar)
+        for _ in range(self.nsteps2):
+            target_fine(xout)
+            ar = self.mcmc2.step(xout, target_fine)
+            ars.append(ar)
+        prev_ars = x.shared.get("acc_rates", [])
+        xout.shared["acc_rates"] = prev_ars + [ars]  # a list of lists
+        return xout
