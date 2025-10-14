@@ -11,10 +11,10 @@ class MatVecModel:
 
     #aux = np.ones((data_dim, parameter_dim))
 
-    rng = np.random.default_rng(seed=22)
-    aux = rng.random(size=(data_dim, parameter_dim))
+    # rng = np.random.default_rng(seed=22)
+    # aux = rng.random(size=(data_dim, parameter_dim))
 
-    #aux = np.eye(N=data_dim, M=parameter_dim)
+    aux = np.eye(N=data_dim, M=parameter_dim)
     
     exact_fw_operator = aux/np.linalg.norm(aux)
     solver_data_noise_ratio = 100

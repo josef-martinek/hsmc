@@ -1,20 +1,14 @@
 import numpy as np
+from problem_setup.toy_problem.likelihood_model import IPModelInexactAdaptHD
+from core.mcmc import NoisyMetropolisCal, TwoStageMCMC
+from particles.smc_samplers import ArrayRandomWalk
 
 def powers_of_two(upto):
     # Compute the largest exponent such that 2**k < upto
     max_exp = int(np.floor(np.log2(upto-1)))
     return 2 ** np.arange(1, max_exp + 1)  # start from 2^1 = 2
 
-chain_len_pm = 32
-fine_over_coarse_nsamp = 20
-max_fine_chain_lengths = powers_of_two(upto=chain_len_pm)
-print(max_fine_chain_lengths)
-max_coarse_chain_lengths = np.floor(0.5*fine_over_coarse_nsamp*(chain_len_pm-max_fine_chain_lengths)+1).astype(int)
-print(max_coarse_chain_lengths)
-coarse_chain_lengths = powers_of_two(upto=max_coarse_chain_lengths[3])
-print(coarse_chain_lengths)
-
-def get_chain_seq(prior, sc, observed_data, chain_len_pm):
+def get_chain_seq(prior, data_noise_var, observed_data, chain_len_pm, fine_over_coarse_nsamp):
     """
     Generate a sequence of DA (Delayed Acceptance) chains with varying
     coarse and fine chain lengths based on powers of two.
@@ -26,12 +20,37 @@ def get_chain_seq(prior, sc, observed_data, chain_len_pm):
     chain_seq : list
         List of constructed AdaptiveMCMCSequence objects.
     """
-    fine_over_coarse_nsamp = 20
     chain_seq = []
     chain_setup = []
 
     max_fine_chain_lengths = powers_of_two(upto=chain_len_pm)
 
+    model_coarse = IPModelInexactAdaptHD(
+        prior=prior,
+        data_noise_cov=data_noise_var,
+        data=observed_data
+    )
+
+    # --- Construct coarse MCMC chain ---
+    mcmc_coarse = NoisyMetropolisCal()
+    mcmc_fine = ArrayRandomWalk()
+    two_stage_chain = TwoStageMCMC(mcmc1=mcmc_coarse,
+                                   mcmc2=mcmc_fine,
+                                   len_chain1=0,
+                                   len_chain2=chain_len_pm,
+                                   coarse_model=model_coarse,
+                                   fine_over_coarse=fine_over_coarse_nsamp)
+
+    # --- Store results ---
+    chain_seq.append(two_stage_chain)
+    chain_setup.append({
+        "chain_id": 0,
+        "fine_chain_len": chain_len_pm,
+        "coarse_chain_len": 0,
+        "fine_over_coarse_nsamp": int(fine_over_coarse_nsamp)
+    })
+
+    count = 1
     for max_fine_chain_len in max_fine_chain_lengths:
         # Compute the maximum coarse chain length corresponding to this fine length
         max_coarse_chain_len = np.floor(
@@ -42,41 +61,30 @@ def get_chain_seq(prior, sc, observed_data, chain_len_pm):
 
         for coarse_chain_len in coarse_chain_lengths:
             # --- Create coarse and fine models ---
-            model_fine = IPModelInexactAdaptHD(
-                prior=prior,
-                data_noise_cov=sc.data_noise_var,
-                data=observed_data
-            )
             model_coarse = IPModelInexactAdaptHD(
                 prior=prior,
-                data_noise_cov=sc.data_noise_var,
+                data_noise_cov=data_noise_var,
                 data=observed_data
             )
 
             # --- Construct coarse MCMC chain ---
             mcmc_coarse = NoisyMetropolisCal()
-            chain_coarse = AdaptiveMCMCSequence(
-                mcmc=mcmc_coarse, len_chain=coarse_chain_len
-            )
-
-            # --- Construct delayed-acceptance fine chain ---
-            da_step = DA(
-                coarse_chain=chain_coarse,
-                coarse_model=model_coarse,
-                fine_over_coarse=fine_over_coarse_nsamp
-            )
-            chain_da = AdaptiveMCMCSequence(
-                mcmc=da_step, len_chain=max_fine_chain_len
-            )
+            mcmc_fine = ArrayRandomWalk()
+            two_stage_chain = TwoStageMCMC(mcmc1=mcmc_coarse,
+                                           mcmc2=mcmc_fine,
+                                           len_chain1=coarse_chain_len,
+                                           len_chain2=max_fine_chain_len,
+                                           coarse_model=model_coarse,
+                                           fine_over_coarse=fine_over_coarse_nsamp)
 
             # --- Store results ---
-            chain_seq.append(chain_da)
+            chain_seq.append(two_stage_chain)
             chain_setup.append({
+                "chain_id": count,
                 "fine_chain_len": int(max_fine_chain_len),
                 "coarse_chain_len": int(coarse_chain_len),
-                "fine_over_coarse_nsamp": int(fine_over_coarse_nsamp),
-                "max_fine_chain_len": int(max_fine_chain_len),
-                "max_coarse_chain_len": int(max_coarse_chain_len)
+                "fine_over_coarse_nsamp": int(fine_over_coarse_nsamp)
             })
+            count += 1
 
     return chain_setup, chain_seq

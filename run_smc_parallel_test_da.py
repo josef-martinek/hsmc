@@ -1,20 +1,21 @@
 import os
 import time
 from collections import defaultdict
-import logging
 import numpy as np
 import ray
 from particles import distributions as dists
 
-from problem_setup.toy_problem.problem_parameters import SamplerConfig as sc
+from problem_setup.toy_problem.problem_parameters_mltest import SamplerConfig as sc
 from problem_setup.toy_problem.likelihood_model import MatVecModel as ModelExact
 import utils.export_info as info
+import utils
 from utils.create_test_chains import get_chain_seq
+import json
 
 if len(sc.ground_truth_par) == 1:
     raise NotImplementedError
 else:
-    from utils.smc_trial_hd import run_single_smc_trial
+    from utils.smc_trial_mltest import run_single_smc_trial
 
 # -----------------------------
 # Config
@@ -25,10 +26,8 @@ NUM_CPUS = 0
 SEED = 1111
 resample_move_end = True
 
-chain_setup, chain_seq = get_chain_seq()
-
 # Nr of inference runs for each param in param_seq
-N_runs = 10
+N_runs = 2
 
 # -----------------------------
 # Housekeeping / provenance
@@ -40,7 +39,7 @@ np.random.seed(SEED)
 # Export reproducibility info
 info.export_full_conda_env(target_folder=RESULTS_FOLDER)
 info.copy_problem_setup(target_folder=RESULTS_FOLDER, module=sc)
-info.copy_problem_setup(target_folder=RESULTS_FOLDER, module=utils.smc_trial_TODO)
+info.copy_problem_setup(target_folder=RESULTS_FOLDER, module=utils.smc_trial_mltest)
 info.copy_problem_setup(target_folder=RESULTS_FOLDER, module=ModelExact)
 info.export_pip_requirements(target_folder=RESULTS_FOLDER)
 info.export_git_commit(target_folder=RESULTS_FOLDER)
@@ -66,6 +65,12 @@ gt = sc.ground_truth_par
 true_sol = ModelExact.exact_sol(gt).reshape(-1,1)  # fixed "truth" used by all trials
 
 observed_data = true_sol + np.random.normal(loc=0., scale=np.sqrt(sc.data_noise_var), size=true_sol.shape)
+
+chain_setup, chain_seq = get_chain_seq(prior,
+                                       sc.data_noise_var,
+                                       observed_data,
+                                       sc.len_chain,
+                                       sc.fine_over_coarse_nsamp)
 
 # Storage (lists; will save as arrays)
 avg_runtimes_ansamp = []
@@ -148,24 +153,11 @@ for chain in chain_seq:
     # Unpack tuples
     (
         runtimes_ansamp,
-        runtimes_fnsamp_ftemp,
-        runtimes_fnsamp_atemp,
-        runtimes_exact,
         mse_ansamp,
-        mse_fnsamp_ftemp,
-        mse_fnsamp_atemp,
-        mse_exact,
         sim_cost_ansamp,
-        sim_cost_fnsamp_ftemp,
-        sim_cost_fnsamp_atemp,
         nsamps_last_ansamp,
         n_temp_steps_ansamp,
-        n_temp_fnsamp_atemp,
-        n_temp_exact,
-        post_means_ansamp,
-        post_means_fnsamp_ftemp,
-        post_means_fnsamp_atemp,
-        post_means_exact
+        post_means_ansamp
     ) = zip(*res_list)
 
     # Means
@@ -195,4 +187,7 @@ np.savez(
     post_mean_stddev_ansamp=np.array(post_mean_stddev_ansamp)
 )
 
-print(f"\nSaved results to {os.path.join(RESULTS_FOLDER, 'smc_results.npz')}")
+with open(os.path.join(RESULTS_FOLDER, "chain_setup.json"), "w") as f:
+    json.dump(chain_setup, f, indent=4)
+
+print(f"\nSaved results to {os.path.join(RESULTS_FOLDER, 'smc_results.npz')} and ...chain_setup.json")

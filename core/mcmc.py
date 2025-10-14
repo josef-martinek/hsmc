@@ -129,8 +129,10 @@ class TwoStageMCMC(MCMCSequence):
                  coarse_model=None,
                  fine_over_coarse=10):
         self.mcmc1 = ArrayRandomWalk() if mcmc1 is None else mcmc1
+        self.len_chain1 = len_chain1
         self.nsteps1 = len_chain1 - 1
         self.mcmc2 = ArrayRandomWalk() if mcmc2 is None else mcmc2
+        self.len_chain2 = len_chain2
         self.nsteps2 = len_chain2 - 1
         self.coarse_model = coarse_model
         self.fine_over_coarse = fine_over_coarse
