@@ -160,8 +160,8 @@ class TwoStageMCMC(MCMCSequence):
             self.coarse_target(xout)
             ar = self.mcmc1.step(xout, self.coarse_target)
             #print("MCWM ar:", ar)
+        target_fine(xout)
         for _ in range(self.nsteps2):
-            target_fine(xout)
             ar = self.mcmc2.step(xout, target_fine)
             ars.append(ar)
         prev_ars = x.shared.get("acc_rates", [])
