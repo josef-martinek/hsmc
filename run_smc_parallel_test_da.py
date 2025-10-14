@@ -5,7 +5,7 @@ import numpy as np
 import ray
 from particles import distributions as dists
 
-from problem_setup.toy_problem.problem_parameters_mltest import SamplerConfig as sc
+from problem_setup.toy_problem.problem_parameters import SamplerConfig as sc
 from problem_setup.toy_problem.likelihood_model import MatVecModel as ModelExact
 import utils.export_info as info
 import utils
