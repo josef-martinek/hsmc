@@ -37,6 +37,7 @@ def get_chain_seq(prior, data_noise_var, observed_data, chain_len_pm, fine_over_
     )
 
     count = 0
+    scale = 2.0
     for max_fine_chain_len in max_fine_chain_lengths:
         # Compute the maximum coarse chain length corresponding to this fine length
         max_coarse_chain_len = np.floor(
@@ -54,7 +55,7 @@ def get_chain_seq(prior, data_noise_var, observed_data, chain_len_pm, fine_over_
             )
 
             # --- Construct coarse MCMC chain ---
-            mcmc_coarse = NoisyMetropolisCal()
+            mcmc_coarse = NoisyMetropolisCal(scale=scale)
             mcmc_fine = ArrayRandomWalk()
             two_stage_chain = TwoStageMCMC(mcmc1=mcmc_coarse,
                                            mcmc2=mcmc_fine,
@@ -69,7 +70,8 @@ def get_chain_seq(prior, data_noise_var, observed_data, chain_len_pm, fine_over_
                 "chain_id": count,
                 "fine_chain_len": int(max_fine_chain_len),
                 "coarse_chain_len": int(coarse_chain_len),
-                "fine_over_coarse_nsamp": int(fine_over_coarse_nsamp)
+                "fine_over_coarse_nsamp": int(fine_over_coarse_nsamp),
+                "coarse_chain_step_scale": scale
             })
             count += 1
 

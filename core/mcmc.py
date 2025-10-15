@@ -38,6 +38,9 @@ class NoisyMetropolisUnc(RWUnc):
 
 class NoisyMetropolisCal(ArrayRandomWalk):
 
+    def __init__(self, scale=1.0):
+        self.scale = scale
+
     def step(self, x, target=None):
         xprop = x.__class__(theta=np.empty_like(x.theta))
         delta_lp = self.proposal(x, xprop)
@@ -49,6 +52,13 @@ class NoisyMetropolisCal(ArrayRandomWalk):
         accept = random.rand(x.N) < pb_acc
         x.copyto(xprop, where=accept)
         return mean_acc
+
+    def proposal(self, x, xprop):
+        L = x.shared["chol_cov"]
+        arr = view_2d_array(x.theta)
+        arr_prop = view_2d_array(xprop.theta)
+        arr_prop[:, :] = arr + self.scale * stats.norm.rvs(size=arr.shape) @ L.T
+        return 0.0
 
 
 class DA(ArrayMCMC):
