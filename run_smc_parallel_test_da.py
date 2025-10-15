@@ -70,7 +70,8 @@ chain_setup, chain_seq = get_chain_seq(prior,
                                        sc.data_noise_var,
                                        observed_data,
                                        sc.len_chain,
-                                       sc.fine_over_coarse_nsamp)
+                                       sc.fine_over_coarse_nsamp,
+                                       sc.coarse_chain_scale)
 
 # Storage (lists; will save as arrays)
 avg_runtimes_ansamp = []

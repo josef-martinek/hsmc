@@ -15,3 +15,4 @@ class SamplerConfig:
     ar_tol = 0.23
     Nmin = 100
     fine_over_coarse_nsamp = 10
+    coarse_chain_scale = 2.0

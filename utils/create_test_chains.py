@@ -13,7 +13,7 @@ def powers_of_two_start_from_one(upto):
     max_exp = int(np.floor(np.log2(upto-1)))
     return 2 ** np.arange(0, max_exp + 1)  # start from 2^1 = 2
 
-def get_chain_seq(prior, data_noise_var, observed_data, chain_len_pm, fine_over_coarse_nsamp):
+def get_chain_seq(prior, data_noise_var, observed_data, chain_len_pm, fine_over_coarse_nsamp, coarse_chain_scale = 1.0):
     """
     Generate a sequence of DA (Delayed Acceptance) chains with varying
     coarse and fine chain lengths based on powers of two.
@@ -37,7 +37,6 @@ def get_chain_seq(prior, data_noise_var, observed_data, chain_len_pm, fine_over_
     )
 
     count = 0
-    scale = 2.0
     for max_fine_chain_len in max_fine_chain_lengths:
         # Compute the maximum coarse chain length corresponding to this fine length
         max_coarse_chain_len = np.floor(
@@ -55,7 +54,7 @@ def get_chain_seq(prior, data_noise_var, observed_data, chain_len_pm, fine_over_
             )
 
             # --- Construct coarse MCMC chain ---
-            mcmc_coarse = NoisyMetropolisCal(scale=scale)
+            mcmc_coarse = NoisyMetropolisCal(scale=coarse_chain_scale)
             mcmc_fine = ArrayRandomWalk()
             two_stage_chain = TwoStageMCMC(mcmc1=mcmc_coarse,
                                            mcmc2=mcmc_fine,
@@ -71,7 +70,7 @@ def get_chain_seq(prior, data_noise_var, observed_data, chain_len_pm, fine_over_
                 "fine_chain_len": int(max_fine_chain_len),
                 "coarse_chain_len": int(coarse_chain_len),
                 "fine_over_coarse_nsamp": int(fine_over_coarse_nsamp),
-                "coarse_chain_step_scale": scale
+                "coarse_chain_step_scale": coarse_chain_scale
             })
             count += 1
 
