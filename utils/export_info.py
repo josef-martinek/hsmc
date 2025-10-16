@@ -10,7 +10,14 @@ def create_results_folder(base_dir="data", prefix="run"):
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     folder_name = f"{prefix}_{timestamp}"
     full_path = os.path.join(base_dir, folder_name)
-    os.makedirs(full_path, exist_ok=False)  # Raises error if folder somehow exists
+
+    # If the folder already exists, append _1, _2, etc.
+    counter = 1
+    while os.path.exists(full_path):
+        full_path = os.path.join(base_dir, f"{folder_name}_{counter}")
+        counter += 1
+
+    os.makedirs(full_path, exist_ok=True)
     return full_path
 
 def export_full_conda_env(target_folder, env_name=None):
