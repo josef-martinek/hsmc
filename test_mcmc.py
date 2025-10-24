@@ -1,5 +1,5 @@
 from particles.smc_samplers import MCMCSequenceWF, ThetaParticles
-from core.mcmc import NoisyMetropolis, RWUncalibrated
+from core.mcmc import NoisyMetropolisUnc, RWUnc
 from particles.smc_samplers import ArrayRandomWalk, Tempering
 from particles import distributions as dists
 import numpy as np
@@ -16,7 +16,7 @@ thinning_step = 10
 burn_in = 1000
 len_chain = 10000
 nsamp_pm = 4000
-nsamp_mcwm = 100
+nsamp_mcwm = 10
 
 if len(sc.ground_truth_par) == 1:
     prior = dists.StructDist({'param': dists.Normal(loc=0., 
@@ -29,32 +29,32 @@ else:
 # Generate synthetic data using ground truth
 true_sol = ModelExact.exact_sol(sc.ground_truth_par).reshape(-1,1)
 observed_data = true_sol + np.random.normal(loc=0.,
-                                            scale=np.sqrt(sc.data_noise_var_seq[0]), 
+                                            scale=np.sqrt(sc.data_noise_var), 
                                             size=true_sol.shape)
 
 if len(sc.ground_truth_par) == 1:
     model_fine = IPModelInexactFix(prior=prior,
-                            data_noise_cov=sc.data_noise_var_seq[0],
+                            data_noise_cov=sc.data_noise_var,
                             data=observed_data,
                             nsamp=nsamp_pm)
     model_coarse = IPModelInexactFix(prior=prior,
-                            data_noise_cov=sc.data_noise_var_seq[0],
+                            data_noise_cov=sc.data_noise_var,
                             data=observed_data,
                             nsamp=nsamp_mcwm)
     model_exact = IPModelExact(prior=prior,
-                            data_noise_cov=sc.data_noise_var_seq[0],
+                            data_noise_cov=sc.data_noise_var,
                             data=observed_data)
 else:
     model_fine = IPModelInexactFixHD(prior=prior,
-                            data_noise_cov=sc.data_noise_var_seq[0],
+                            data_noise_cov=sc.data_noise_var,
                             data=observed_data,
                             nsamp=nsamp_pm)
     model_coarse = IPModelInexactFixHD(prior=prior,
-                            data_noise_cov=sc.data_noise_var_seq[0],
+                            data_noise_cov=sc.data_noise_var,
                             data=observed_data,
                             nsamp=nsamp_mcwm)
     model_exact = IPModelExactHD(prior=prior,
-                            data_noise_cov=sc.data_noise_var_seq[0],
+                            data_noise_cov=sc.data_noise_var,
                             data=observed_data)
 
 x0 = ThetaParticles(theta=prior.rvs(size=1))
@@ -77,9 +77,9 @@ aux_temp_alg_exact = Tempering(model=model_exact, exponents=np.array([0., 1.]))
 target_exact = Tempering.current_target(aux_temp_alg_exact, 1.)
 target_exact(x0_exact)
 
-pmmcmc = MCMCSequenceWF(mcmc=RWUncalibrated(), len_chain=len_chain)
-mcwm = MCMCSequenceWF(mcmc=NoisyMetropolis(), len_chain=len_chain)
-mrw = MCMCSequenceWF(mcmc=RWUncalibrated(), len_chain=len_chain)
+pmmcmc = MCMCSequenceWF(mcmc=RWUnc(scale_factor=0.2), len_chain=len_chain)
+mcwm = MCMCSequenceWF(mcmc=NoisyMetropolisUnc(scale_factor=1.), len_chain=len_chain)
+mrw = MCMCSequenceWF(mcmc=RWUnc(scale_factor=0.2), len_chain=len_chain)
 
 print("Running exact MRW...")
 samp_mrw = mrw(x=x0_exact, target=target_exact)
