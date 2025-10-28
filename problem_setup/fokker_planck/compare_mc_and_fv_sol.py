@@ -17,7 +17,7 @@ print(f"Runtime EM: {time_em}")
 results_em = results_em.flatten()
 
 start = time.time()
-results_fv = lm.FPModelHD.fv_solution(params=params.flatten())
+results_fv = lm.FPModelHD.exact_sol(params=params.flatten())
 time_fv = time.time()-start
 print(f"Runtime FV: {time_fv}")
 

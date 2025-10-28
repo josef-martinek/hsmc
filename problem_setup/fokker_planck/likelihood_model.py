@@ -1,4 +1,4 @@
-from problem_setup.likelihood_base import IPModel1D
+from problem_setup.likelihood_base import IPModelHD
 import numpy as np
 from fipy import CellVariable, Grid1D, TransientTerm, DiffusionTerm
 
@@ -27,8 +27,7 @@ class FPModelHD:
     n_steps_fv = int(t / dt_fv)
 
     # New basis / field parameters
-    s = 5        # number of cosine modes (s in your sum) #TODO maybe just determine adaptively
-    q = 1.0       # decay exponent for 1/j^q
+    q = 2.0       # decay exponent for 1/j^q
     a0 = 0.0      # constant offset a0 in exponent
 
     @classmethod
@@ -102,7 +101,7 @@ class FPModelHD:
         return np.transpose(hist_array)
     
     @classmethod
-    def fv_solution(cls, params):
+    def exact_sol(cls, params):
         D_field = cls.param_to_diff(params=params.reshape(1, -1),
                                     x=cls.x_fv.reshape(1, -1)).flatten()
         D = CellVariable(mesh=cls.mesh_fv, value=D_field)
@@ -133,8 +132,8 @@ class FPModelHD:
             Shape (n_bins, n_params).
         """
         n_bins_fv, n_params = sol.shape
-        if sol[0]>1e-4 or sol[-1]>1e-4:
-            print(f"The boundary solution values are large, namely sol(x_min)={sol[0]} and sol(x_max)={sol[-1]}")
+        if sol[0]>1e-2 or sol[-1]>1e-2:
+            print(f"The boundary solution values are critically large, namely sol(x_min)={sol[0]} and sol(x_max)={sol[-1]}")
 
         # --- Step 1: truncate fine grid to [x_min, x_max] ---
         mask = (cls.x_fv >= cls.x_min) & (cls.x_fv <= cls.x_max)
@@ -158,10 +157,9 @@ class FPModelHD:
         return sol_coarse
 
 
-
-class IPModelExact(IPModel1D):
+class IPModelExactHD(IPModelHD):
     def _evaluate_model(self, param):
-        return HeatEqModel.exact_sol(param)
+        return FPModelHD.exact_sol(param)
 
     @property
     def parallel_eval(self):
@@ -176,18 +174,14 @@ class IPModelExact(IPModel1D):
         raise AttributeError("nsamp not used in exact model.")
 
 
-class IPModelInexactFix(IPModel1D):
+class IPModelInexactFixHD(IPModelHD):
     def __init__(self, prior, data_noise_cov, data, nsamp):
         super().__init__(prior, data_noise_cov, data)
         self._nsamp = round(nsamp)
 
     def _evaluate_model(self, param):
-        if self.parallel_eval:
-            return HeatEqModel.euler_maruyama_binned_vectorized(params=param,
-                                                                nsamp=self.nsamp)
-        else:
-            return HeatEqModel.euler_maruyama_binned(param=param,
-                                                     nsamp=self.nsamp)
+        return FPModelHD.euler_maruyama_binned_vectorized(params=param,
+                                                          nsamp=self.nsamp)
 
     @property
     def parallel_eval(self):
@@ -202,18 +196,15 @@ class IPModelInexactFix(IPModel1D):
         raise AttributeError("nsamp is read only in model with fixed number of samples.")
 
 
-class IPModelInexactAdapt(IPModel1D):
+class IPModelInexactAdaptHD(IPModelHD):
     def __init__(self, prior, data_noise_cov, data):
         super().__init__(prior, data_noise_cov, data)
         self._nsamp = None
 
     def _evaluate_model(self, param):
         if self.parallel_eval:
-            return HeatEqModel.euler_maruyama_binned_vectorized(params=param,
-                                                                nsamp=self.nsamp)
-        else:
-            return HeatEqModel.euler_maruyama_binned(param=param,
-                                                     nsamp=self.nsamp)
+            return FPModelHD.euler_maruyama_binned_vectorized(params=param,
+                                                              nsamp=self.nsamp)
 
     @property
     def parallel_eval(self):
