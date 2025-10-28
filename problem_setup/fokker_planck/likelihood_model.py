@@ -16,17 +16,18 @@ class FPModelHD:
     sigma0 = 0.05
 
     #fipy (finite volumes) setup
-    x_min_fv, x_max_fv = -2.0, 2.0
+    x_min_fv, x_max_fv = -4.0, 4.0
     nx_fv = 1000
     dx_fv = (x_max_fv - x_min_fv) / nx_fv
     mesh_fv = Grid1D(dx=dx_fv, nx=nx_fv)
     x_fv = mesh_fv.cellCenters[0].value + x_min_fv
-    p0 = np.exp(-((x_fv - x0) ** 2) / (2 * sigma0**2))
+    norm_const = 1.0 / (np.sqrt(2 * np.pi) * sigma0)
+    p0 = np.exp(-((x_fv - x0) ** 2) / (2 * sigma0**2)) * norm_const
     dt_fv = 1e-4
     n_steps_fv = int(t / dt_fv)
 
     # New basis / field parameters
-    s = 5        # number of cosine modes (s in your sum)
+    s = 5        # number of cosine modes (s in your sum) #TODO maybe just determine adaptively
     q = 1.0       # decay exponent for 1/j^q
     a0 = 0.0      # constant offset a0 in exponent
 
@@ -110,7 +111,7 @@ class FPModelHD:
         for step in range(cls.n_steps_fv):
             eq.solve(var=p_fv, dt=cls.dt_fv)
         sol = p_fv.value.copy() # TODO check what this is doing
-        sol = cls.postprocess_fv_sol(sol)
+        sol = cls.postprocess_fv_sol(sol.reshape(-1,1)).flatten()
         # TODO sanity check
         return sol
     
@@ -132,6 +133,8 @@ class FPModelHD:
             Shape (n_bins, n_params).
         """
         n_bins_fv, n_params = sol.shape
+        if sol[0]>1e-8 or sol[-1]>1e-8:
+            print(f"The boundary solution values are large, namely sol(x_min)={sol[0]} and sol(x_max)={sol[-1]}")
 
         # --- Step 1: truncate fine grid to [x_min, x_max] ---
         mask = (cls.x_fv >= cls.x_min) & (cls.x_fv <= cls.x_max)
