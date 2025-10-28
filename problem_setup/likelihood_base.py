@@ -80,6 +80,6 @@ class IPModelHD(IPModel1D, ABC):
         if self.parallel_eval:
             evals = self._evaluate_model(params)
         else:
-            for i in range(len(params[0])):
+            for i in range(params.shape[0]):
                 evals[:, i] = self._evaluate_model(params[i])
         return evals
