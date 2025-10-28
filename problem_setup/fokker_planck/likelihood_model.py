@@ -16,14 +16,14 @@ class FPModelHD:
     sigma0 = 0.05
 
     #fipy (finite volumes) setup
-    x_min_fv, x_max_fv = -4.0, 4.0
-    nx_fv = 1000
+    x_min_fv, x_max_fv = -2.0, 2.0
+    nx_fv = 400
     dx_fv = (x_max_fv - x_min_fv) / nx_fv
     mesh_fv = Grid1D(dx=dx_fv, nx=nx_fv)
     x_fv = mesh_fv.cellCenters[0].value + x_min_fv
     norm_const = 1.0 / (np.sqrt(2 * np.pi) * sigma0)
     p0 = np.exp(-((x_fv - x0) ** 2) / (2 * sigma0**2)) * norm_const
-    dt_fv = 1e-4
+    dt_fv = 5e-4
     n_steps_fv = int(t / dt_fv)
 
     # New basis / field parameters
@@ -31,8 +31,8 @@ class FPModelHD:
     q = 1.0       # decay exponent for 1/j^q
     a0 = 0.0      # constant offset a0 in exponent
 
-    @staticmethod
-    def param_to_diff(params: np.ndarray, x: np.ndarray):
+    @classmethod
+    def param_to_diff(cls, params: np.ndarray, x: np.ndarray):
         """
         Evaluate D(x) = exp(a0 + sum_j omega_j * (1/j^q) * cos(2π j x))
         exactly at the given x_positions (no interpolation).
@@ -47,8 +47,8 @@ class FPModelHD:
             raise ValueError("x_positions must have shape (n_params, nsamp)")
 
         # j indices: 1..s
-        j = np.arange(1, FPModelHD.s + 1)
-        scales = 1.0 / (j ** FPModelHD.q)    # shape (s,)
+        j = np.arange(1, params.shape[1] + 1)
+        scales = 1.0 / (j ** cls.q)    # shape (s,)
 
         # Evaluate cos(2π j x).
         # Build array of shape (s, n_params, nsamp): cos_j[j,i,k] = cos(2π * j * x[i,k])
@@ -60,7 +60,7 @@ class FPModelHD:
 
         # sum_j params_scaled[i,j] * cos_j[j,i,k]  -> result shape (n_params, nsamp)
         # einsum over j: 'ij,jik->ik'
-        m = FPModelHD.a0 + np.einsum('ij,jik->ik', params_scaled, cos_j)
+        m = cls.a0 + np.einsum('ij,jik->ik', params_scaled, cos_j)
 
         D = np.exp(m)  # (n_params, nsamp)
         return D
@@ -133,7 +133,7 @@ class FPModelHD:
             Shape (n_bins, n_params).
         """
         n_bins_fv, n_params = sol.shape
-        if sol[0]>1e-8 or sol[-1]>1e-8:
+        if sol[0]>1e-4 or sol[-1]>1e-4:
             print(f"The boundary solution values are large, namely sol(x_min)={sol[0]} and sol(x_max)={sol[-1]}")
 
         # --- Step 1: truncate fine grid to [x_min, x_max] ---
