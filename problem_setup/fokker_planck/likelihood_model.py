@@ -1,6 +1,93 @@
 from problem_setup.likelihood_base import IPModelHD
 import numpy as np
-from fipy import CellVariable, Grid1D, TransientTerm, DiffusionTerm
+
+
+def solve_fd_Dp_xx(x, D_field, p0, dt, t_final, theta=0.5):
+    """
+    Solve ∂_t p = ∂_x^2 (D(x) p) on the provided grid x with Dirichlet p=0 at ends.
+    - x: 1D array of cell centers (length N)
+    - D_field: same length N, D(x) evaluated at cell centers
+    - p0: initial p values on x (length N)
+    - dt: time step
+    - t_final: final time
+    - theta: 0.5 => Crank-Nicolson, 1.0 => implicit Euler
+    Returns: p_final (length N)
+    Notes:
+      - Uses second-order central differences for the second derivative of (D p).
+      - Dirichlet p=0 enforced at boundaries (first and last nodes).
+    """
+    x = np.asarray(x)
+    N = len(x)
+    dx = x[1] - x[0]
+
+    # Number of time steps
+    n_steps = int(np.ceil(t_final / dt))
+    dt = t_final / n_steps
+
+    # Build the discrete operator A such that Au ≈ ∂_x^2 (D u)
+    # For interior i = 1..N-2:
+    #   (D_{i+1} u_{i+1} - 2 D_i u_i + D_{i-1} u_{i-1}) / dx^2
+    lower = np.zeros(N-1, dtype=float)  # a (length N-1) lower diag (subdiagonal)
+    diag  = np.zeros(N, dtype=float)    # b (length N)    diagonal
+    upper = np.zeros(N-1, dtype=float)  # c (length N-1) upper diag (superdiagonal)
+
+    lower[:] = D_field[:-1] / (dx * dx)   # A[i,i-1] = D_{i-1} / dx^2
+    upper[:] = D_field[1:]  / (dx * dx)   # A[i,i+1] = D_{i+1} / dx^2
+    diag[1:-1] = -2.0 * D_field[1:-1] / (dx * dx)
+    # Boundary rows enforce Dirichlet p=0 (A[0,:]=0, A[-1,:]=0). diag[0], diag[-1] unchanged 0.
+
+    # Build LHS = I - theta * dt * A  and RHS contribution factor (I + (1-theta)*dt*A)
+    a_lhs = -theta * dt * lower.copy()   # length N-1
+    b_lhs = 1.0 - theta * dt * diag.copy() # length N
+    c_lhs = -theta * dt * upper.copy()   # length N-1
+
+    # enforce Dirichlet boundary rows: set LHS row 0 and N-1 to identity
+    b_lhs[0] = 1.0
+    a_lhs[0:1] = 0.0
+    c_lhs[0:1] = 0.0
+    b_lhs[-1] = 1.0
+    a_lhs[-1:] = 0.0
+    c_lhs[-1:] = 0.0
+
+    # Precompute RHS operator parts from A: we'll compute Au each step
+    # time-stepping
+    u = p0.copy()
+    for _ in range(n_steps):
+        # compute Au
+        Au = np.zeros_like(u)
+        # interior nodes
+        Au[1:-1] = lower[0:N-2] * u[0:-2] + diag[1:-1] * u[1:-1] + upper[1:N-1] * u[2:]
+        # boundaries: Au[0]=0, Au[-1]=0 (Dirichlet)
+        Au[0] = 0.0
+        Au[-1] = 0.0
+
+        rhs = u + (1.0 - theta) * dt * Au
+        # impose Dirichlet boundaries on rhs
+        rhs[0] = 0.0
+        rhs[-1] = 0.0
+
+        # Solve tridiagonal (a_lhs, b_lhs, c_lhs) x = rhs  (Thomas algorithm)
+        # We implement a simple Thomas solver here:
+        # make copies because Thomas modifies arrays
+        ac = a_lhs.copy().astype(float)
+        bc = b_lhs.copy().astype(float)
+        cc = c_lhs.copy().astype(float)
+        dc = rhs.copy().astype(float)
+
+        n = N
+        for i in range(1, n):
+            w = ac[i-1] / bc[i-1]
+            bc[i] = bc[i] - w * cc[i-1]
+            dc[i] = dc[i] - w * dc[i-1]
+
+        xsol = np.empty(n, dtype=float)
+        xsol[-1] = dc[-1] / bc[-1]
+        for i in range(n-2, -1, -1):
+            xsol[i] = (dc[i] - cc[i] * xsol[i+1]) / bc[i]
+
+        u = xsol
+
+    return u
 
 
 class FPModelHD:
@@ -10,20 +97,19 @@ class FPModelHD:
     x_min, x_max = -1.0, 1.0 #Part of domain where we take measurements.
     n_bins = 50
     t = 0.1
-    dt = 1e-4
+    dt = 1e-3
     # Gaussian initial distribution
     x0 = 0.0
     sigma0 = 0.05
 
     #fipy (finite volumes) setup
     x_min_fv, x_max_fv = -2.0, 2.0
-    nx_fv = 400
+    nx_fv = 1000
     dx_fv = (x_max_fv - x_min_fv) / nx_fv
-    mesh_fv = Grid1D(dx=dx_fv, nx=nx_fv)
-    x_fv = mesh_fv.cellCenters[0].value + x_min_fv
+    x_fv = np.linspace(x_min_fv, x_max_fv, num=nx_fv)
     norm_const = 1.0 / (np.sqrt(2 * np.pi) * sigma0)
     p0 = np.exp(-((x_fv - x0) ** 2) / (2 * sigma0**2)) * norm_const
-    dt_fv = 5e-4
+    dt_fv = 1e-3
     n_steps_fv = int(t / dt_fv)
 
     # New basis / field parameters
@@ -102,16 +188,17 @@ class FPModelHD:
     
     @classmethod
     def exact_sol(cls, params):
+        # params is 1D array for one parameter set
         D_field = cls.param_to_diff(params=params.reshape(1, -1),
-                                    x=cls.x_fv.reshape(1, -1)).flatten()
-        D = CellVariable(mesh=cls.mesh_fv, value=D_field)
-        p_fv = CellVariable(mesh=cls.mesh_fv, value=cls.p0, name="p")
-        eq = TransientTerm() == DiffusionTerm(coeff=D)
-        for step in range(cls.n_steps_fv):
-            eq.solve(var=p_fv, dt=cls.dt_fv)
-        sol = p_fv.value.copy() # TODO check what this is doing
-        sol = cls.postprocess_fv_sol(sol.reshape(-1,1)).flatten()
-        # TODO sanity check
+                                    x=cls.x_fv.reshape(1, -1)).flatten()   # shape (nx_fv,)
+        # initial p0 on x_fv (already normalized analytically)
+        p0 = cls.p0.copy()
+
+        # solve PDE ∂t p = ∂x^2( D p ) on x_fv
+        p_final = solve_fd_Dp_xx(cls.x_fv, D_field, p0, dt=cls.dt_fv, t_final=cls.t, theta=0.5)
+
+        # postprocess to coarse bins
+        sol = cls.postprocess_fv_sol(p_final.reshape(-1,1)).flatten()
         return sol
     
     @classmethod
