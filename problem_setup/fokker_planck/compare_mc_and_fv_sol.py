@@ -5,12 +5,10 @@ import time
 
 np.random.seed(seed=1)
 
-n_params = 1
-s = 5
-params = np.zeros((n_params, s))
+params = np.array([[1., -1.]])
 start = time.time()
 results_em = lm.FPModelHD.euler_maruyama_binned_vectorized(params=params,
-                                                           nsamp=100000)
+                                                           nsamp=10000)
 time_em = time.time()-start
 print(f"Runtime EM: {time_em}")
 
