@@ -35,19 +35,19 @@ if __name__ == "__main__":
                                                 scale=np.sqrt(sc.data_noise_var), 
                                                 size=true_sol.shape)
 
-    model = IPModelExactHD(prior=prior, 
-                               data_noise_cov=sc.data_noise_var, 
-                               data=observed_data)
+    # model = IPModelExactHD(prior=prior, 
+    #                            data_noise_cov=sc.data_noise_var, 
+    #                            data=observed_data)
     # model = IPModelInexactFixHD(prior=prior, 
     #                                   data_noise_cov=sc.data_noise_var, 
     #                                   data=observed_data,
-    #                                   nsamp=1000)
-    # model = IPModelInexactAdaptHD(prior=prior,
-    #                             data_noise_cov=sc.data_noise_var,
-    #                             data=observed_data)
+    #                                   nsamp=10000)
+    model = IPModelInexactAdaptHD(prior=prior,
+                                data_noise_cov=sc.data_noise_var,
+                                data=observed_data)
 
-    fk_tempering = ssp.AdaptiveTempering(model=model, wastefree=False, len_chain=sc.len_chain, ESSrmin=sc.ESS_rmin)
-    #fk_tempering = TempAdaptNsampNoRew(Nmin=sc.Nmin[0], ar_tol=sc.ar_tol, model=model, wastefree=False, len_chain=sc.len_chain, ESSrmin=sc.ESS_rmin)
+    #fk_tempering = ssp.AdaptiveTempering(model=model, wastefree=False, len_chain=sc.len_chain, ESSrmin=sc.ESS_rmin)
+    fk_tempering = TempAdaptNsampNoRew(Nmin=sc.Nmin, ar_tol=sc.ar_tol, model=model, wastefree=False, len_chain=sc.len_chain, ESSrmin=sc.ESS_rmin)
 
     my_temp_alg = SMC(fk=fk_tempering, N=sc.n_particles, ESSrmin=1., 
                                 verbose=True)
