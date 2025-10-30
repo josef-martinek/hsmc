@@ -9,10 +9,10 @@ class SamplerConfig:
     ground_truth_par = np.ones((param_dim,1))#/np.linalg.norm(np.ones((param_dim,1))) #Must be a scalar array (1D) or column vector (high dim)
     data_dim = 10
     prior_marg_var = 1.
-    n_particles = 2000
-    len_chain = 200
-    ESS_rmin = 0.9
-    ar_tol = 0.2
+    n_particles = 100
+    len_chain = 10
+    ESS_rmin = 0.7
+    ar_tol = 0.35
     Nmin = 100
     fine_over_coarse_nsamp = 10
     coarse_chain_scale = 2.0
