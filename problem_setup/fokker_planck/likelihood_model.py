@@ -1,47 +1,52 @@
 from problem_setup.likelihood_base import IPModelHD
 import numpy as np
+from scipy.linalg import solve_banded
 
 
-def solve_fd_Dp_xx(x, D_field, p0, dt, t_final, theta=0.5):
+def solve_fd_fast(x, D_field, p0, dt, t_final, theta=0.5):
     """
-    Solve ∂_t p = ∂_x^2 (D(x) p) on the provided grid x with Dirichlet p=0 at ends.
-    - x: 1D array of cell centers (length N)
-    - D_field: same length N, D(x) evaluated at cell centers
-    - p0: initial p values on x (length N)
-    - dt: time step
-    - t_final: final time
-    - theta: 0.5 => Crank-Nicolson, 1.0 => implicit Euler
-    Returns: p_final (length N)
-    Notes:
-      - Uses second-order central differences for the second derivative of (D p).
-      - Dirichlet p=0 enforced at boundaries (first and last nodes).
+    Fast, banded Crank–Nicolson solver for ∂_t p = ∂_x^2( D(x) p ), Dirichlet p=0.
+    This function mirrors exactly the original discretisation in solve_fd_Dp_xx
+    but uses scipy.solve_banded for the tridiagonal solve.
+
+    Parameters
+    ----------
+    x : (N,) array
+        cell centers
+    D_field : (N,) array
+        D(x) on cell centers
+    p0 : (N,) array
+        initial condition
+    dt : float
+    t_final : float
+    theta : float (0.5 CN, 1.0 implicit Euler)
+
+    Returns
+    -------
+    u : (N,) array
+        solution at final time
     """
     x = np.asarray(x)
     N = len(x)
     dx = x[1] - x[0]
 
-    # Number of time steps
+    # number of time steps (adjust dt so it divides t_final)
     n_steps = int(np.ceil(t_final / dt))
     dt = t_final / n_steps
 
-    # Build the discrete operator A such that Au ≈ ∂_x^2 (D u)
-    # For interior i = 1..N-2:
-    #   (D_{i+1} u_{i+1} - 2 D_i u_i + D_{i-1} u_{i-1}) / dx^2
-    lower = np.zeros(N-1, dtype=float)  # a (length N-1) lower diag (subdiagonal)
-    diag  = np.zeros(N, dtype=float)    # b (length N)    diagonal
-    upper = np.zeros(N-1, dtype=float)  # c (length N-1) upper diag (superdiagonal)
+    # Build operator A approximating ∂_x^2 (D u)
+    # Follow exactly the same indexing as in your reference solver.
+    lower_full = D_field[:-1] / (dx * dx)   # length N-1, corresponds to A[i,i-1] = D_{i-1}/dx^2
+    upper_full = D_field[1:]  / (dx * dx)   # length N-1, corresponds to A[i,i+1] = D_{i+1}/dx^2
+    diag_full  = np.zeros(N, dtype=float)   # length N
+    diag_full[1:-1] = -2.0 * D_field[1:-1] / (dx * dx)
 
-    lower[:] = D_field[:-1] / (dx * dx)   # A[i,i-1] = D_{i-1} / dx^2
-    upper[:] = D_field[1:]  / (dx * dx)   # A[i,i+1] = D_{i+1} / dx^2
-    diag[1:-1] = -2.0 * D_field[1:-1] / (dx * dx)
-    # Boundary rows enforce Dirichlet p=0 (A[0,:]=0, A[-1,:]=0). diag[0], diag[-1] unchanged 0.
+    # LHS = I - theta * dt * A  (a_lhs, b_lhs, c_lhs follow original lengths)
+    a_lhs = -theta * dt * lower_full.copy()   # length N-1 (subdiagonal)
+    b_lhs = 1.0 - theta * dt * diag_full.copy() # length N (diagonal)
+    c_lhs = -theta * dt * upper_full.copy()   # length N-1 (superdiagonal)
 
-    # Build LHS = I - theta * dt * A  and RHS contribution factor (I + (1-theta)*dt*A)
-    a_lhs = -theta * dt * lower.copy()   # length N-1
-    b_lhs = 1.0 - theta * dt * diag.copy() # length N
-    c_lhs = -theta * dt * upper.copy()   # length N-1
-
-    # enforce Dirichlet boundary rows: set LHS row 0 and N-1 to identity
+    # enforce Dirichlet BC rows (make first and last rows identity)
     b_lhs[0] = 1.0
     a_lhs[0:1] = 0.0
     c_lhs[0:1] = 0.0
@@ -49,43 +54,37 @@ def solve_fd_Dp_xx(x, D_field, p0, dt, t_final, theta=0.5):
     a_lhs[-1:] = 0.0
     c_lhs[-1:] = 0.0
 
-    # Precompute RHS operator parts from A: we'll compute Au each step
-    # time-stepping
+    # convert to SciPy banded form (ab shape (3, N) with (1,1) super/subdiags)
+    # ab[0,1:] = superdiag (c_lhs)
+    # ab[1,:]  = diag (b_lhs)
+    # ab[2,:-1]= subdiag (a_lhs)
+    ab = np.zeros((3, N), dtype=float)
+    ab[0, 1:] = c_lhs        # upper diag shifted right
+    ab[1, :]  = b_lhs
+    ab[2, :-1] = a_lhs       # lower diag shifted left
+
+    # initial condition
     u = p0.copy()
+
+    # time stepping
     for _ in range(n_steps):
-        # compute Au
+        # Compute Au using same discretisation as used to build A
         Au = np.zeros_like(u)
-        # interior nodes
-        Au[1:-1] = lower[0:N-2] * u[0:-2] + diag[1:-1] * u[1:-1] + upper[1:N-1] * u[2:]
-        # boundaries: Au[0]=0, Au[-1]=0 (Dirichlet)
+        # interior nodes: note we use exactly the same slices as the reference solver
+        # lower_full[0:N-2] multiplies u[0:-2], upper_full[1:N-1] multiplies u[2:]
+        if N > 2:
+            Au[1:-1] = lower_full[0:N-2] * u[0:-2] + diag_full[1:-1] * u[1:-1] + upper_full[1:N-1] * u[2:]
+        # boundaries (Dirichlet => Au[0]=Au[-1]=0)
         Au[0] = 0.0
         Au[-1] = 0.0
 
+        # RHS = (I + (1-theta)*dt*A) u
         rhs = u + (1.0 - theta) * dt * Au
-        # impose Dirichlet boundaries on rhs
         rhs[0] = 0.0
         rhs[-1] = 0.0
 
-        # Solve tridiagonal (a_lhs, b_lhs, c_lhs) x = rhs  (Thomas algorithm)
-        # We implement a simple Thomas solver here:
-        # make copies because Thomas modifies arrays
-        ac = a_lhs.copy().astype(float)
-        bc = b_lhs.copy().astype(float)
-        cc = c_lhs.copy().astype(float)
-        dc = rhs.copy().astype(float)
-
-        n = N
-        for i in range(1, n):
-            w = ac[i-1] / bc[i-1]
-            bc[i] = bc[i] - w * cc[i-1]
-            dc[i] = dc[i] - w * dc[i-1]
-
-        xsol = np.empty(n, dtype=float)
-        xsol[-1] = dc[-1] / bc[-1]
-        for i in range(n-2, -1, -1):
-            xsol[i] = (dc[i] - cc[i] * xsol[i+1]) / bc[i]
-
-        u = xsol
+        # Solve banded system
+        u = solve_banded((1, 1), ab, rhs)
 
     return u
 
@@ -97,19 +96,19 @@ class FPModelHD:
     x_min, x_max = -1.0, 1.0 #Part of domain where we take measurements.
     n_bins = 50
     t = 0.1
-    dt = 1e-3
+    dt = 5e-4
     # Gaussian initial distribution
     x0 = 0.0
     sigma0 = 0.05
 
     #fipy (finite volumes) setup
     x_min_fv, x_max_fv = -2.0, 2.0
-    nx_fv = 1000
+    nx_fv = 400
     dx_fv = (x_max_fv - x_min_fv) / nx_fv
     x_fv = np.linspace(x_min_fv, x_max_fv, num=nx_fv)
     norm_const = 1.0 / (np.sqrt(2 * np.pi) * sigma0)
     p0 = np.exp(-((x_fv - x0) ** 2) / (2 * sigma0**2)) * norm_const
-    dt_fv = 1e-3
+    dt_fv = 1e-4
     n_steps_fv = int(t / dt_fv)
 
     # New basis / field parameters
@@ -192,10 +191,13 @@ class FPModelHD:
         D_field = cls.param_to_diff(params=params.reshape(1, -1),
                                     x=cls.x_fv.reshape(1, -1)).flatten()   # shape (nx_fv,)
         # initial p0 on x_fv (already normalized analytically)
+        if D_field.max()/D_field.min()>1000:
+            print(f"Coeff. field too rough, risk of unstabilities. D_max/D_min={D_field.max()/D_field.min()}")
         p0 = cls.p0.copy()
 
         # solve PDE ∂t p = ∂x^2( D p ) on x_fv
-        p_final = solve_fd_Dp_xx(cls.x_fv, D_field, p0, dt=cls.dt_fv, t_final=cls.t, theta=0.5)
+        # p_final = solve_fd_Dp_xx(cls.x_fv, D_field, p0, dt=cls.dt_fv, t_final=cls.t, theta=0.5)
+        p_final = solve_fd_fast(cls.x_fv, D_field, p0, dt=cls.dt_fv, t_final=cls.t, theta=0.5)
 
         # postprocess to coarse bins
         sol = cls.postprocess_fv_sol(p_final.reshape(-1,1)).flatten()
