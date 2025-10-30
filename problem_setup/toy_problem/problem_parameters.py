@@ -9,7 +9,7 @@ class SamplerConfig:
     data_dim = 10
     prior_marg_var = 1.
     n_particles = 100
-    len_chain = np.array([2, 4, 8])
+    len_chain = 10
     ESS_rmin = 0.7
     ar_tol = 0.35
     Nmin = 100
