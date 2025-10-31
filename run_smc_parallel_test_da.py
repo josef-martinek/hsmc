@@ -5,14 +5,16 @@ import numpy as np
 import ray
 from particles import distributions as dists
 
-from problem_setup.toy_problem.problem_parameters import SamplerConfig as sc
-from problem_setup.toy_problem.likelihood_model import MatVecModel as ModelExact
+# from problem_setup.toy_problem.problem_parameters import SamplerConfig as sc
+# from problem_setup.toy_problem.likelihood_model import MatVecModel as ModelExact
+from problem_setup.fokker_planck.problem_parameters import SamplerConfig as sc
+from problem_setup.fokker_planck.likelihood_model import FPModelHD as ModelExact
 import utils.export_info as info
 import utils
 from utils.create_test_chains import get_chain_seq
 import json
 
-if len(sc.ground_truth_par) == 1:
+if sc.param_dim == 1:
     raise NotImplementedError
 else:
     from utils.smc_trial_mltest import run_single_smc_trial
@@ -58,7 +60,7 @@ else:
 # -----------------------------
 # Problem setup
 # -----------------------------
-param_dim = len(sc.ground_truth_par)
+param_dim = sc.param_dim
 prior = dists.StructDist({'param': dists.MvNormal(loc=np.zeros(param_dim),
                                                   cov=sc.prior_marg_var*np.eye(param_dim))})
 gt = sc.ground_truth_par
@@ -103,7 +105,7 @@ for chain in chain_seq:
             sc.data_noise_var,
             true_sol,
             prior,
-            gt,
+            gt[:sc.param_dim],
             chain, #TODO
             sc.Nmin,
             sc.ar_tol,
