@@ -49,6 +49,8 @@ def get_chain_seq(prior, data_noise_var, observed_data, chain_len_pm, fine_over_
         for coarse_chain_len in coarse_chain_lengths:
             if coarse_chain_len > round(chain_len_pm/2)+1: #Prevent too long coarse chains because I know what's happening there.
                 continue
+            if coarse_chain_len + max_fine_chain_len < 2: #Prevent too short chains
+                continue
             # --- Create coarse and fine models ---
             model_coarse = IPModelInexactAdaptHD(
                 prior=prior,
