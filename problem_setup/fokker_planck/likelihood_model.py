@@ -26,7 +26,7 @@ class FPModelHD:
     n_steps_fv = int(t / dt_fv)
 
     # New basis / field parameters
-    q = 2.0       # decay exponent for 1/j^q
+    q = 1.1       # decay exponent for 1/j^q
     a0 = 0.0      # constant offset a0 in exponent
 
     @classmethod

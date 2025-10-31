@@ -25,7 +25,7 @@ if __name__ == "__main__":
     if len(sc.ground_truth_par) == 1:
         logging.error("This script is only for multi dimensional inference.")
 
-    param_dim = len(sc.ground_truth_par)
+    param_dim = sc.param_dim
     prior = dists.StructDist({'param': dists.MvNormal(loc=np.zeros(param_dim),
                                                       cov=sc.prior_marg_var*np.eye(param_dim))})
 
