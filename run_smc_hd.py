@@ -25,7 +25,7 @@ if __name__ == "__main__":
     if len(sc.ground_truth_par) == 1:
         logging.error("This script is only for multi dimensional inference.")
 
-    param_dim = len(sc.ground_truth_par)
+    param_dim = sc.param_dim
     prior = dists.StructDist({'param': dists.MvNormal(loc=np.zeros(param_dim),
                                                       cov=sc.prior_marg_var*np.eye(param_dim))})
 
@@ -34,6 +34,7 @@ if __name__ == "__main__":
     observed_data = true_sol + np.random.normal(loc=0., 
                                                 scale=np.sqrt(sc.data_noise_var), 
                                                 size=true_sol.shape)
+    print("Observed data generated.")
 
     model = IPModelExactHD(prior=prior, 
                                data_noise_cov=sc.data_noise_var, 
@@ -64,7 +65,7 @@ if __name__ == "__main__":
 
     post_samp = my_temp_alg.X.theta['param']
     post_mean = np.mean(post_samp, axis=0)
-    #print("Posterior mean:", post_mean)
+    print("Posterior mean:", post_mean)
     np.savez("data/post_mean_test.npz", post_mean=post_mean)
 
     # Create a DataFrame for seaborn
