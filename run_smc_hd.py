@@ -4,6 +4,7 @@ from particles import distributions as dists
 from particles import smc_samplers as ssp
 from core.samplers import TempAdaptNsampNoRew
 from particles.core import SMC
+import core.mcmc as MCMC
 # from problem_setup.toy_problem.problem_parameters import SamplerConfig as sc
 # from problem_setup.toy_problem.likelihood_model import IPModelExactHD, IPModelInexactFixHD, IPModelInexactAdaptHD
 # from problem_setup.toy_problem.likelihood_model import MatVecModel as ModelExact
@@ -47,10 +48,10 @@ if __name__ == "__main__":
     #                             data_noise_cov=sc.data_noise_var,
     #                             data=observed_data)
 
-    #mcmc = ssp.ArrayRandomWalk()
-    #move = ssp.AdaptiveMCMCSequence(mcmc=mcmc, adaptive=True, delta_dist=0.1, len_chain=sc.len_chain)
-    #fk_tempering = ssp.AdaptiveTempering(model=model, wastefree=False, ESSrmin=sc.ESS_rmin, move=move)
-    fk_tempering = ssp.AdaptiveTempering(model=model, wastefree=False, len_chain=sc.len_chain, ESSrmin=sc.ESS_rmin)
+    mcmc = MCMC.RWRegCal()
+    move = ssp.AdaptiveMCMCSequence(mcmc=mcmc, adaptive=False, len_chain=sc.len_chain)
+    fk_tempering = ssp.AdaptiveTempering(model=model, wastefree=False, ESSrmin=sc.ESS_rmin, move=move)
+    #fk_tempering = ssp.AdaptiveTempering(model=model, wastefree=False, len_chain=sc.len_chain, ESSrmin=sc.ESS_rmin)
     #fk_tempering = TempAdaptNsampNoRew(Nmin=sc.Nmin, ar_tol=sc.ar_tol, model=model, wastefree=False, len_chain=sc.len_chain, ESSrmin=sc.ESS_rmin)
 
     my_temp_alg = SMC(fk=fk_tempering, N=sc.n_particles, ESSrmin=1., 
