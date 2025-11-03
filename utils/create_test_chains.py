@@ -1,7 +1,7 @@
 import numpy as np
 #from problem_setup.toy_problem.likelihood_model import IPModelInexactAdaptHD
 from problem_setup.fokker_planck.likelihood_model import IPModelInexactAdaptHD
-from core.mcmc import NoisyMetropolisCal, TwoStageMCMC
+from core.mcmc import NoisyMetropolisCal, TwoStageMCMC, RWRegCal
 from particles.smc_samplers import ArrayRandomWalk
 
 def powers_of_two(upto):
@@ -60,7 +60,7 @@ def get_chain_seq(prior, data_noise_var, observed_data, chain_len_pm, fine_over_
 
             # --- Construct coarse MCMC chain ---
             mcmc_coarse = NoisyMetropolisCal(scale=coarse_chain_scale)
-            mcmc_fine = ArrayRandomWalk()
+            mcmc_fine = RWRegCal()
             two_stage_chain = TwoStageMCMC(mcmc1=mcmc_coarse,
                                            mcmc2=mcmc_fine,
                                            len_chain1=coarse_chain_len,
