@@ -7,9 +7,12 @@ from particles.core import SMC
 # from problem_setup.toy_problem.problem_parameters import SamplerConfig as sc
 # from problem_setup.toy_problem.likelihood_model import IPModelExactHD, IPModelInexactFixHD, IPModelInexactAdaptHD
 # from problem_setup.toy_problem.likelihood_model import MatVecModel as ModelExact
-from problem_setup.fokker_planck.problem_parameters import SamplerConfig as sc
-from problem_setup.fokker_planck.likelihood_model import IPModelExactHD, IPModelInexactFixHD, IPModelInexactAdaptHD
-from problem_setup.fokker_planck.likelihood_model import FPModelHD as ModelExact
+# from problem_setup.fokker_planck.problem_parameters import SamplerConfig as sc
+# from problem_setup.fokker_planck.likelihood_model import IPModelExactHD, IPModelInexactFixHD, IPModelInexactAdaptHD
+# from problem_setup.fokker_planck.likelihood_model import FPModelHD as ModelExact
+from problem_setup.wos.problem_parameters import SamplerConfig as sc
+from problem_setup.wos.likelihood_model import IPModelExactHD, IPModelInexactFixHD, IPModelInexactAdaptHD
+from problem_setup.wos.likelihood_model import WOSHD as ModelExact
 import logging
 from matplotlib import pyplot as plt
 import seaborn as sb
