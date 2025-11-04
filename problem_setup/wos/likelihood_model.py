@@ -12,12 +12,12 @@ class WOSHD:
     # ----- simulation & model constants (tweak as needed) -----
     eps = 1e-2        # stopping threshold (distance to boundary)
     a0 = 1.          # constant boundary term (matches earlier example)
-    q = 0.5           # decay exponent in boundary series
+    q = 1.1           # decay exponent in boundary series
     R = 1.0           # unit disk
 
     # grid for evaluation (cell centres); we evaluate on full grid but only use interior points
-    nx = 101
-    ny = 101
+    nx = 21
+    ny = 21
     xs = np.linspace(-1.0, 1.0, nx)
     ys = np.linspace(-1.0, 1.0, ny)
 
@@ -107,7 +107,7 @@ class WOSHD:
         returns: (n_points_total, n_params)
         """
         if rng is None:
-            rng = np.random.default_rng()
+            rng = np.random.default_rng(seed=None)
 
         params = np.asarray(params)
         if params.ndim == 1:
@@ -207,3 +207,67 @@ class WOSHD:
         if cls.a0 != 0.0:
             u = u + cls.a0
         return u
+    
+
+class IPModelExactHD(IPModelHD):
+    def _evaluate_model(self, param):
+        return WOSHD.exact_sol(param)
+
+    @property
+    def parallel_eval(self):
+        return True
+
+    @property
+    def nsamp(self):
+        raise AttributeError("nsamp not used in exact model.")
+
+    @nsamp.setter
+    def nsamp(self, value):
+        raise AttributeError("nsamp not used in exact model.")
+
+
+class IPModelInexactFixHD(IPModelHD):
+    def __init__(self, prior, data_noise_cov, data, nsamp):
+        super().__init__(prior, data_noise_cov, data)
+        self._nsamp = round(nsamp)
+
+    def _evaluate_model(self, param):
+        return WOSHD.wos(params=param,
+                         nsamp=self.nsamp)
+
+    @property
+    def parallel_eval(self):
+        return True
+
+    @property
+    def nsamp(self):
+        return self._nsamp
+
+    @nsamp.setter
+    def nsamp(self, value):
+        raise AttributeError("nsamp is read only in model with fixed number of samples.")
+
+
+class IPModelInexactAdaptHD(IPModelHD):
+    def __init__(self, prior, data_noise_cov, data):
+        super().__init__(prior, data_noise_cov, data)
+        self._nsamp = None
+
+    def _evaluate_model(self, param):
+        if self.parallel_eval:
+            return WOSHD.wos(params=param,
+                             nsamp=self.nsamp)
+
+    @property
+    def parallel_eval(self):
+        return True
+
+    @property
+    def nsamp(self):
+        if self._nsamp is None:
+            raise AttributeError("nsamp not specified in model with adaptive number of samples")
+        return self._nsamp
+
+    @nsamp.setter
+    def nsamp(self, value):
+        self._nsamp = round(value)
