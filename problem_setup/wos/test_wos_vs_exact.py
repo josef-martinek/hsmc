@@ -6,8 +6,8 @@ import time
 # one parameter vector (s cos coeffs)
 #params = np.array([[1.0, -0.5, 0.3, 0.0, 0.0, 0.0]])
 np.random.seed(seed=4)
-params = np.random.randn(1, 20)
-npaths = 2
+params = np.random.randn(1, 10)
+npaths = 10
 
 start = time.time()
 print("Number of inner points:", WOSHD.points_in().size)
