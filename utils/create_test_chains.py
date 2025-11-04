@@ -1,6 +1,7 @@
 import numpy as np
 #from problem_setup.toy_problem.likelihood_model import IPModelInexactAdaptHD
-from problem_setup.fokker_planck.likelihood_model import IPModelInexactAdaptHD
+#from problem_setup.fokker_planck.likelihood_model import IPModelInexactAdaptHD
+from problem_setup.wos.likelihood_model import IPModelInexactAdaptHD
 from core.mcmc import NoisyMetropolisCal, TwoStageMCMC, RWRegCal
 from particles.smc_samplers import ArrayRandomWalk
 

@@ -7,7 +7,8 @@ import logging
 
 def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, chain, Nmin, ar_tol, ESSrmin, nparticles, resample_move_end, run_id=None, observed_data=None):
     #from problem_setup.toy_problem.likelihood_model import IPModelInexactAdaptHD
-    from problem_setup.fokker_planck.likelihood_model import IPModelInexactAdaptHD
+    #from problem_setup.fokker_planck.likelihood_model import IPModelInexactAdaptHD
+    from problem_setup.wos.likelihood_model import IPModelInexactAdaptHD
 
     if run_id is not None:
         np.random.seed(seed=run_id)  # Important for Ray workers

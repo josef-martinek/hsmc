@@ -7,8 +7,10 @@ from particles import distributions as dists
 
 # from problem_setup.toy_problem.problem_parameters import SamplerConfig as sc
 # from problem_setup.toy_problem.likelihood_model import MatVecModel as ModelExact
-from problem_setup.fokker_planck.problem_parameters import SamplerConfig as sc
-from problem_setup.fokker_planck.likelihood_model import FPModelHD as ModelExact
+# from problem_setup.fokker_planck.problem_parameters import SamplerConfig as sc
+# from problem_setup.fokker_planck.likelihood_model import FPModelHD as ModelExact
+from problem_setup.wos.problem_parameters import SamplerConfig as sc
+from problem_setup.wos.likelihood_model import WOSHD as ModelExact
 import utils.export_info as info
 import utils
 from utils.create_test_chains import get_chain_seq

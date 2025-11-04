@@ -16,3 +16,6 @@ class SamplerConfig:
     ESS_rmin = 0.7
     ar_tol = 0.2
     Nmin = 2
+
+    fine_over_coarse_nsamp = 10
+    coarse_chain_scale = 2
