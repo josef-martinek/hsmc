@@ -10,14 +10,15 @@ class WOSHD:
     """
 
     # ----- simulation & model constants (tweak as needed) -----
-    eps = 1e-2        # stopping threshold (distance to boundary)
-    a0 = 1.          # constant boundary term (matches earlier example)
-    q = 1.1           # decay exponent in boundary series
+    eps = 1e-3        # stopping threshold (distance to boundary)
+    a0 = 0.2          # constant boundary term (matches earlier example)
+    q = 0.0           # decay exponent in boundary series
     R = 1.0           # unit disk
+    r = 0.975           # inner boundary
 
     # grid for evaluation (cell centres); we evaluate on full grid but only use interior points
-    nx = 21
-    ny = 21
+    nx = 81
+    ny = 81
     xs = np.linspace(-1.0, 1.0, nx)
     ys = np.linspace(-1.0, 1.0, ny)
 
@@ -31,7 +32,7 @@ class WOSHD:
         """Boolean mask of points inside the unit disk for grid_all()."""
         pts = cls.grid_all()
         r2 = pts[:, 0]**2 + pts[:, 1]**2
-        return r2 < cls.R**2
+        return (r2 < cls.R**2) & (r2 > cls.r**2)
 
     @classmethod
     def points_in(cls):
@@ -233,7 +234,7 @@ class IPModelInexactFixHD(IPModelHD):
 
     def _evaluate_model(self, param):
         return WOSHD.wos(params=param,
-                         nsamp=self.nsamp)
+                         npaths=self.nsamp)
 
     @property
     def parallel_eval(self):
@@ -256,7 +257,7 @@ class IPModelInexactAdaptHD(IPModelHD):
     def _evaluate_model(self, param):
         if self.parallel_eval:
             return WOSHD.wos(params=param,
-                             nsamp=self.nsamp)
+                             npaths=self.nsamp)
 
     @property
     def parallel_eval(self):
