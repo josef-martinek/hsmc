@@ -9,7 +9,7 @@ class SamplerConfig:
     ground_truth_par = truth_rng.normal(scale=0.25, size=32)
     print("ground truth:", ground_truth_par)
 
-    param_dim = 2
+    param_dim = 16
     prior_marg_var = 0.5
     n_particles = 100
     len_chain = 4
