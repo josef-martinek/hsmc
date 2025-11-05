@@ -100,13 +100,13 @@ class WOSHD:
     @classmethod
     def wos(cls, params: np.ndarray, npaths: int, rng=None) -> np.ndarray:
         """
-        Vectorized WOS for all interior points at once (no batching).
-        
+        Memory-efficient WOS: runs point-by-point and param-by-param
+        instead of fully vectorizing. Only (npaths,2) stored at once.
+
         params: (n_params, s) or (s,)
-        npaths: number of MC paths per param per point
-        rng: optional np.random.Generator
-        returns: (n_points_total, n_params)
+        returns: (N_pts, n_params)
         """
+
         if rng is None:
             rng = np.random.default_rng(seed=None)
 
@@ -115,68 +115,70 @@ class WOSHD:
             params = params.reshape(1, -1)
         n_params = params.shape[0]
 
-        # all interior points
-        pts = cls.points_in()                        # (N_pts, 2)
+        pts = cls.points_in()  # (N_pts, 2)
         N_pts = pts.shape[0]
 
-        # initialize positions for all paths
-        # shape (n_params, N_pts, npaths, 2)
-        P = np.repeat(pts[None, :, None, :], n_params, axis=0)
-        P = np.repeat(P, npaths, axis=2)
+        # result holder (N_pts, n_params)
+        out = np.zeros((N_pts, n_params))
 
-        # mask for active paths
-        active = np.ones((n_params, N_pts, npaths), dtype=bool)
-
-        step_count = 0
         max_steps = 100000
 
-        while np.any(active):
-            step_count += 1
-            x = P[..., 0]
-            y = P[..., 1]
-            r = np.hypot(x, y)
+        for ip in range(n_params):
+            p = params[ip]  # shape (s,)
 
-            dist = cls.R - r
-            newly_done = (dist <= cls.eps) | (r >= cls.R)
-            still_active = active & (~newly_done)
-            if not np.any(still_active):
-                active = active & (~newly_done)
-                break
+            for i in range(N_pts):
+                x0, y0 = pts[i]
 
-            # indices of active points
-            idx = np.nonzero(still_active)
-            d_vals = dist[idx]
+                # init paths: shape (npaths,2)
+                P = np.zeros((npaths, 2))
+                P[:, 0] = x0
+                P[:, 1] = y0
 
-            # sample random directions
-            phi = rng.random(size=d_vals.shape)
-            cos_phi = np.cos(2.0 * np.pi * phi)
-            sin_phi = np.sin(2.0 * np.pi * phi)
+                active = np.ones(npaths, dtype=bool)
 
-            # update positions
-            P[idx + (0,)] += d_vals * cos_phi
-            P[idx + (1,)] += d_vals * sin_phi
+                step_count = 0
 
-            # update active mask
-            x = P[..., 0]
-            y = P[..., 1]
-            r = np.hypot(x, y)
-            dist = cls.R - r
-            active = active & (dist > cls.eps) & (r < cls.R)
+                while np.any(active):
+                    step_count += 1
+                    x = P[:, 0]
+                    y = P[:, 1]
+                    r = np.hypot(x, y)
 
-            if step_count > max_steps:
-                raise RuntimeError("WOS: exceeded max steps for some path; increase eps or check geometry")
+                    dist = cls.R - r
 
-        # compute theta at boundary hits
-        theta = np.arctan2(P[..., 1], P[..., 0])   # (n_params, N_pts, npaths)
+                    newly_done = (dist <= cls.eps) | (r >= cls.R)
+                    active &= (~newly_done)
 
-        # evaluate boundary function
-        hvals = cls.param_to_coeff(params, theta)  # (n_params, N_pts, npaths)
+                    if not np.any(active):
+                        break
 
-        # average over paths
-        mean_h = hvals.mean(axis=2)                # (n_params, N_pts)
+                    idx = np.where(active)[0]
+                    d_vals = dist[idx]
 
-        # return (N_pts, n_params)
-        return mean_h.T
+                    phi = rng.random(size=d_vals.shape)
+                    cos_phi = np.cos(2.0 * np.pi * phi)
+                    sin_phi = np.sin(2.0 * np.pi * phi)
+
+                    P[idx, 0] += d_vals * cos_phi
+                    P[idx, 1] += d_vals * sin_phi
+
+                    x = P[:, 0]; y = P[:, 1]
+                    r = np.hypot(x, y)
+                    dist = cls.R - r
+                    active &= (dist > cls.eps) & (r < cls.R)
+
+                    if step_count > max_steps:
+                        raise RuntimeError("WOS: exceeded max steps; increase eps or check geometry")
+
+                # boundary theta (npaths,)
+                theta = np.arctan2(P[:, 1], P[:, 0])
+
+                # eval boundary fn -> shape (1,1,npaths) but we pass shape okay
+                val = cls.param_to_coeff(p, theta[None, None, :])
+
+                out[i, ip] = val.mean()
+
+        return out
 
 
     # ------------------------------------------------------------------
