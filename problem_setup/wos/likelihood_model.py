@@ -97,13 +97,15 @@ class WOSHD:
     # batch_points: how many grid points to process in one batch (memory control)
     # returns: (n_points_total, n_params)
     # ------------------------------------------------------------------
+
     @classmethod
-    def wos(cls, params: np.ndarray, npaths: int, rng=None) -> np.ndarray:
+    def wos(cls, params: np.ndarray, npaths: int, batch_points: int = 10, rng=None) -> np.ndarray:
         """
-        Memory-efficient WOS: runs point-by-point and param-by-param
-        instead of fully vectorizing. Only (npaths,2) stored at once.
+        Batched Walk-On-Spheres for annulus (r < |x| < R).
 
         params: (n_params, s) or (s,)
+        npaths: number of paths per (param, point)
+        batch_points: number of grid points processed simultaneously
         returns: (N_pts, n_params)
         """
 
@@ -118,51 +120,52 @@ class WOSHD:
         pts = cls.points_in()  # (N_pts, 2)
         N_pts = pts.shape[0]
 
-        # result holder (N_pts, n_params)
         out = np.zeros((N_pts, n_params))
-
         max_steps = 100000
 
         for ip in range(n_params):
             p = params[ip]  # shape (s,)
 
-            for i in range(N_pts):
-                x0, y0 = pts[i]
+            # Process all points in batches
+            for start in range(0, N_pts, batch_points):
+                end = min(start + batch_points, N_pts)
+                m = end - start
+                batch_pts = pts[start:end]  # (m, 2)
 
-                # init paths: shape (npaths,2)
-                P = np.zeros((npaths, 2))
-                P[:, 0] = x0
-                P[:, 1] = y0
+                # Init positions for all paths at once: (m, npaths, 2)
+                P = np.zeros((m, npaths, 2))
+                P[:, :, 0] = batch_pts[:, 0, None]
+                P[:, :, 1] = batch_pts[:, 1, None]
 
-                active = np.ones(npaths, dtype=bool)
-
+                active = np.ones((m, npaths), dtype=bool)
                 step_count = 0
 
                 while np.any(active):
                     step_count += 1
-                    x = P[:, 0]
-                    y = P[:, 1]
-                    r = np.hypot(x, y)
 
+                    x = P[..., 0]
+                    y = P[..., 1]
+                    r = np.hypot(x, y)
                     dist = cls.R - r
 
                     newly_done = (dist <= cls.eps) | (r >= cls.R)
-                    active &= (~newly_done)
+                    active &= ~newly_done
 
                     if not np.any(active):
                         break
 
-                    idx = np.where(active)[0]
+                    idx = np.where(active)
                     d_vals = dist[idx]
 
                     phi = rng.random(size=d_vals.shape)
                     cos_phi = np.cos(2.0 * np.pi * phi)
                     sin_phi = np.sin(2.0 * np.pi * phi)
 
-                    P[idx, 0] += d_vals * cos_phi
-                    P[idx, 1] += d_vals * sin_phi
+                    P[idx + (0,)] += d_vals * cos_phi
+                    P[idx + (1,)] += d_vals * sin_phi
 
-                    x = P[:, 0]; y = P[:, 1]
+                    x = P[..., 0]
+                    y = P[..., 1]
                     r = np.hypot(x, y)
                     dist = cls.R - r
                     active &= (dist > cls.eps) & (r < cls.R)
@@ -170,15 +173,15 @@ class WOSHD:
                     if step_count > max_steps:
                         raise RuntimeError("WOS: exceeded max steps; increase eps or check geometry")
 
-                # boundary theta (npaths,)
-                theta = np.arctan2(P[:, 1], P[:, 0])
+                # After WOS loop, compute boundary theta for all paths
+                theta = np.arctan2(P[..., 1], P[..., 0])  # (m, npaths)
+                val = cls.param_to_coeff(p, theta[None, :, :])  # -> (1, m, npaths)
+                mean_val = val.mean(axis=-1).squeeze()           # (m,)
 
-                # eval boundary fn -> shape (1,1,npaths) but we pass shape okay
-                val = cls.param_to_coeff(p, theta[None, None, :])
-
-                out[i, ip] = val.mean()
+                out[start:end, ip] = mean_val
 
         return out
+
 
 
     # ------------------------------------------------------------------
