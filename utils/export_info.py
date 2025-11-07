@@ -6,9 +6,9 @@ import inspect
 from datetime import datetime
 
 
-def create_results_folder(base_dir="data", prefix="run"):
+def create_results_folder(base_dir="data", prefix="run", suffix="_"):
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    folder_name = f"{prefix}_{timestamp}"
+    folder_name = f"{prefix}_{timestamp}{suffix}"
     full_path = os.path.join(base_dir, folder_name)
 
     # If the folder already exists, append _1, _2, etc.
