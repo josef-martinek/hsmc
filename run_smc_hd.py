@@ -21,6 +21,7 @@ import pandas as pd
 import time
 
 np.random.seed(1111)
+thinning_step = 4
 resample_move_end = True
 if not resample_move_end:
     logging.error("Posterior pair plot requires unweighted samples")
@@ -71,9 +72,10 @@ if __name__ == "__main__":
     post_mean = np.mean(post_samp, axis=0)
     print("Posterior mean:", post_mean)
     np.savez("data/post_mean_test.npz", post_mean=post_mean)
+    post_samp_thinned = post_samp[:,::thinning_step]
 
     # Create a DataFrame for seaborn
-    df = pd.DataFrame(post_samp, columns=[f'Param {i+1}' for i in range(post_samp.shape[1])])
+    df = pd.DataFrame(post_samp_thinned, columns=[f'Param {thinning_step * i+1}' for i in range(post_samp_thinned.shape[1])])
 
     # Create pair plot
     g = sb.pairplot(df, diag_kind='kde', corner=False,
