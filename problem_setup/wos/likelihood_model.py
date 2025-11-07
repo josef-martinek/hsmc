@@ -99,12 +99,13 @@ class WOSHD:
     # ------------------------------------------------------------------
 
     @classmethod
-    def wos(cls, params: np.ndarray, npaths: int, batch_points: int = 100, rng=None) -> np.ndarray:
+    def wos(cls, params: np.ndarray, npaths: float, batch_points: int = 100, rng=None) -> np.ndarray:
         """
         Batched Walk-On-Spheres for annulus (r < |x| < R).
 
         params: (n_params, s) or (s,)
-        npaths: number of paths per (param, point)
+        npaths: number of paths per (param, point);
+                if 0 < npaths < 1, interpreted as fraction of points sampled.
         batch_points: number of grid points processed simultaneously
         returns: (N_pts, n_params)
         """
@@ -123,21 +124,29 @@ class WOSHD:
         out = np.zeros((N_pts, n_params))
         max_steps = 100000
 
+        # Determine sampling strategy
+        if npaths < 1.0:
+            sampled_idx = rng.choice(N_pts, size=int(round(N_pts * npaths)), replace=False)
+            npaths_int = 1
+        else:
+            sampled_idx = np.arange(N_pts)
+            npaths_int = int(npaths)
+
         for ip in range(n_params):
             p = params[ip]  # shape (s,)
 
-            # Process all points in batches
-            for start in range(0, N_pts, batch_points):
-                end = min(start + batch_points, N_pts)
-                m = end - start
-                batch_pts = pts[start:end]  # (m, 2)
+            # Process sampled points in batches
+            for start in range(0, len(sampled_idx), batch_points):
+                sel = sampled_idx[start:start + batch_points]
+                batch_pts = pts[sel]  # (m, 2)
+                m = len(sel)
 
-                # Init positions for all paths at once: (m, npaths, 2)
-                P = np.zeros((m, npaths, 2))
+                # Init positions for all paths at once: (m, npaths_int, 2)
+                P = np.zeros((m, npaths_int, 2))
                 P[:, :, 0] = batch_pts[:, 0, None]
                 P[:, :, 1] = batch_pts[:, 1, None]
 
-                active = np.ones((m, npaths), dtype=bool)
+                active = np.ones((m, npaths_int), dtype=bool)
                 step_count = 0
 
                 while np.any(active):
@@ -174,14 +183,13 @@ class WOSHD:
                         raise RuntimeError("WOS: exceeded max steps; increase eps or check geometry")
 
                 # After WOS loop, compute boundary theta for all paths
-                theta = np.arctan2(P[..., 1], P[..., 0])  # (m, npaths)
-                val = cls.param_to_coeff(p, theta[None, :, :])  # -> (1, m, npaths)
-                mean_val = val.mean(axis=-1).squeeze()           # (m,)
+                theta = np.arctan2(P[..., 1], P[..., 0])  # (m, npaths_int)
+                val = cls.param_to_coeff(p, theta[None, :, :])  # -> (1, m, npaths_int)
+                mean_val = val.mean(axis=-1).squeeze()          # (m,)
 
-                out[start:end, ip] = mean_val
+                out[sel, ip] = mean_val
 
         return out
-
 
 
     # ------------------------------------------------------------------
@@ -235,7 +243,7 @@ class IPModelExactHD(IPModelHD):
 class IPModelInexactFixHD(IPModelHD):
     def __init__(self, prior, data_noise_cov, data, nsamp):
         super().__init__(prior, data_noise_cov, data)
-        self._nsamp = round(nsamp)
+        self._nsamp = nsamp
 
     def _evaluate_model(self, param):
         return WOSHD.wos(params=param,
@@ -276,4 +284,4 @@ class IPModelInexactAdaptHD(IPModelHD):
 
     @nsamp.setter
     def nsamp(self, value):
-        self._nsamp = round(value)
+        self._nsamp = value

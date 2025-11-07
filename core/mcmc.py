@@ -162,7 +162,7 @@ class TwoStageMCMC(MCMCSequence):
     def calibrate(self, W, x):
         nsamp_fine = x.shared["solver_nsamp"][-1]
         epn = x.shared["exponents"][-1]
-        self.coarse_model.nsamp = np.ceil(nsamp_fine / self.fine_over_coarse)
+        self.coarse_model.nsamp = nsamp_fine / self.fine_over_coarse
 
         def func(x_aux):
             x_aux.lprior = self.coarse_model.prior.logpdf(x_aux.theta)
