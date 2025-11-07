@@ -99,7 +99,7 @@ class WOSHD:
     # ------------------------------------------------------------------
 
     @classmethod
-    def wos(cls, params: np.ndarray, npaths: int, batch_points: int = 10, rng=None) -> np.ndarray:
+    def wos(cls, params: np.ndarray, npaths: int, batch_points: int = 100, rng=None) -> np.ndarray:
         """
         Batched Walk-On-Spheres for annulus (r < |x| < R).
 
