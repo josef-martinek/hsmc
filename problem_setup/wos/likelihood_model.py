@@ -106,7 +106,7 @@ class WOSHD:
     # ------------------------------------------------------------------
 
     @classmethod
-    def wos(cls, params: np.ndarray, npaths: float, batch_points: int = 100, rng=None) -> np.ndarray:
+    def wos(cls, params: np.ndarray, npaths: float, batch_points: int = 100) -> np.ndarray:
         """
         Batched Walk-On-Spheres for annulus (r < |x| < R).
 
@@ -116,9 +116,6 @@ class WOSHD:
         batch_points: number of grid points processed simultaneously
         returns: (N_pts, n_params)
         """
-
-        if rng is None:
-            rng = np.random.default_rng(seed=None)
 
         params = np.asarray(params)
         if params.ndim == 1:
@@ -133,7 +130,7 @@ class WOSHD:
 
         # Determine sampling strategy
         if npaths < 1.0:
-            sampled_idx = rng.choice(N_pts, size=int(round(N_pts * npaths)), replace=False)
+            sampled_idx = np.random.choice(N_pts, size=int(round(N_pts * npaths)), replace=False)
             npaths_int = 1
         else:
             sampled_idx = np.arange(N_pts)
@@ -173,7 +170,7 @@ class WOSHD:
                     idx = np.where(active)
                     d_vals = dist[idx]
 
-                    phi = rng.random(size=d_vals.shape)
+                    phi = np.random.random(size=d_vals.shape)
                     cos_phi = np.cos(2.0 * np.pi * phi)
                     sin_phi = np.sin(2.0 * np.pi * phi)
 
