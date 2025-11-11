@@ -23,10 +23,21 @@ grid_all = WOSHD.grid_all()
 mask = WOSHD.mask_inside()
 nx, ny = WOSHD.nx, WOSHD.ny
 
+stride = WOSHD.stride  # same stride as in WOSHD.points_in
+
+grid_all = WOSHD.grid_all()
+mask_full = WOSHD.mask_inside()
+
+# Subsample the mask accordingly
+mask_sparse = np.zeros_like(mask_full)
+mask_sparse[np.where(mask_full)[0][::stride]] = True
+
+# Now assign only on those sparse interior points
 U_mc = np.full(grid_all.shape[0], np.nan)
-U_ex = np.full_like(U_mc, np.nan) 
-U_mc[mask] = u_mc[:, 0]
-U_ex[mask] = u_ex[:, 0]
+U_ex = np.full_like(U_mc, np.nan)
+U_mc[mask_sparse] = u_mc[:, 0]
+U_ex[mask_sparse] = u_ex[:, 0]
+
 
 U_mc_grid = U_mc.reshape(nx, ny)
 U_ex_grid = U_ex.reshape(nx, ny)

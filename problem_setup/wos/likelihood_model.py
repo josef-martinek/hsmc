@@ -14,13 +14,14 @@ class WOSHD:
     a0 = 0.2          # constant boundary term (matches earlier example)
     q = 0.0           # decay exponent in boundary series
     R = 1.0           # unit disk
-    r = 0.975           # inner boundary
+    r = 0.8           # inner boundary
 
     # grid for evaluation (cell centres); we evaluate on full grid but only use interior points
     nx = 81
     ny = 81
     xs = np.linspace(-1.0, 1.0, nx)
     ys = np.linspace(-1.0, 1.0, ny)
+    stride = 3
 
     @classmethod
     def grid_all(cls):
@@ -36,10 +37,16 @@ class WOSHD:
 
     @classmethod
     def points_in(cls):
-        """Return array of points inside disk, shape (n_points, 2)."""
+        """
+        Return array of points inside the annulus, optionally subsampled.
+        stride: take every `stride`-th point to make measurements sparser.
+        """
         grid = cls.grid_all()
         mask = cls.mask_inside()
-        return grid[mask]
+        pts_inside = grid[mask]
+        # Take every `stride`th point to make the sampling sparser
+        return pts_inside[::cls.stride]
+
 
     @classmethod
     def n_points(cls):
