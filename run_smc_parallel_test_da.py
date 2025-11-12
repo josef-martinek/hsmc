@@ -69,7 +69,8 @@ prior = dists.StructDist({'param': dists.MvNormal(loc=np.zeros(param_dim),
 gt = sc.ground_truth_par
 true_sol = ModelExact.exact_sol(gt).reshape(-1,1)  # fixed "truth" used by all trials
 
-observed_data = true_sol + np.random.normal(loc=0., scale=np.sqrt(sc.data_noise_var), size=true_sol.shape)
+rng_data = np.random.default_rng(seed=81)
+observed_data = true_sol + rng_data.normal(loc=0., scale=np.sqrt(sc.data_noise_var), size=true_sol.shape)
 
 chain_setup, chain_seq = get_chain_seq(prior,
                                        sc.data_noise_var,
