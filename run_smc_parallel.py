@@ -88,7 +88,8 @@ observed_data = None
 if fix_observed_data:
     if param_seq_name == "data_noise_var_seq":
         logging.error("Observed data can be fixed only if their noise doesn't change")
-    observed_data = true_sol + np.random.normal(loc=0., scale=np.sqrt(sc.data_noise_var), size=true_sol.shape)
+    rng_data = np.random.default_rng(seed=81)
+    observed_data = true_sol + rng_data.normal(loc=0., scale=np.sqrt(sc.data_noise_var), size=true_sol.shape)
 
 # Storage (lists; will save as arrays)
 avg_runtimes_ansamp = []
