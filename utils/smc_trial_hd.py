@@ -6,7 +6,8 @@ from particles.core import SMC
 import logging
 
 def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chain, Nmin, ar_tol, ESSrmin, nparticles, resample_move_end, run_id=None, observed_data=None):
-    from problem_setup.toy_problem.likelihood_model import IPModelExactHD, IPModelInexactFixHD, IPModelInexactAdaptHD
+    #from problem_setup.toy_problem.likelihood_model import IPModelExactHD, IPModelInexactFixHD, IPModelInexactAdaptHD
+    from problem_setup.wos.likelihood_model import IPModelExactHD, IPModelInexactFixHD, IPModelInexactAdaptHD
 
     if run_id is not None:
         np.random.seed(seed=run_id)  # Important for Ray workers

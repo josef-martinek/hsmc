@@ -14,14 +14,14 @@ class WOSHD:
     a0 = 0.2          # constant boundary term (matches earlier example)
     q = 0.0           # decay exponent in boundary series
     R = 1.0           # unit disk
-    r = 0.8           # inner boundary
+    r = 0.0           # inner boundary
 
     # grid for evaluation (cell centres); we evaluate on full grid but only use interior points
     nx = 81
     ny = 81
     xs = np.linspace(-1.0, 1.0, nx)
     ys = np.linspace(-1.0, 1.0, ny)
-    stride = 3
+    stride = 10
 
     @classmethod
     def grid_all(cls):

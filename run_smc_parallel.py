@@ -8,8 +8,10 @@ from particles import distributions as dists
 
 # from problem_setup.heat_eq_ip.problem_parameters import SamplerConfig as sc
 # from problem_setup.heat_eq_ip.likelihood_model import HeatEqModel as ModelExact
-from problem_setup.toy_problem.problem_parameters import SamplerConfig as sc
-from problem_setup.toy_problem.likelihood_model import MatVecModel as ModelExact
+# from problem_setup.toy_problem.problem_parameters import SamplerConfig as sc
+# from problem_setup.toy_problem.likelihood_model import MatVecModel as ModelExact
+from problem_setup.wos.problem_parameters import SamplerConfig as sc
+from problem_setup.wos.likelihood_model import WOSHD as ModelExact
 import utils.smc_trial_hd
 import utils.smc_trial_1d
 import utils.export_info as info
@@ -34,7 +36,7 @@ param_seq = sc.len_chain
 param_seq_name = "mcmc_n_steps"
 
 # Nr of inference runs for each param in param_seq
-N_runs = 100
+N_runs = 2
 
 # -----------------------------
 # Housekeeping / provenance
