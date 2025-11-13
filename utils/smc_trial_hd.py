@@ -4,6 +4,7 @@ from particles import smc_samplers as ssp
 from core.samplers import TempAdaptNsampNoRew
 from particles.core import SMC
 import logging
+from core.mcmc import RWRegCal
 
 def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chain, Nmin, ar_tol, ESSrmin, nparticles, resample_move_end, run_id=None, observed_data=None):
     #from problem_setup.toy_problem.likelihood_model import IPModelExactHD, IPModelInexactFixHD, IPModelInexactAdaptHD
@@ -13,6 +14,9 @@ def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chai
         np.random.seed(seed=run_id)  # Important for Ray workers
     if observed_data is None:
         observed_data = true_sol + np.random.normal(loc=0., scale=np.sqrt(data_noise_var), size=true_sol.shape)
+
+    mcmc = RWRegCal()
+    move = ssp.AdaptiveMCMCSequence(mcmc=mcmc, adaptive=False, len_chain=len_chain)
 
     model_inex_adapt = IPModelInexactAdaptHD(
         prior=prior,
@@ -25,7 +29,7 @@ def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chai
         ar_tol=ar_tol,
         model=model_inex_adapt,
         wastefree=False,
-        len_chain=len_chain,
+        move=move,
         ESSrmin=ESSrmin
     )
 
@@ -68,7 +72,7 @@ def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chai
         model=model_inex_fix,
         wastefree=False,
         exponents=exponents[1:],
-        len_chain=len_chain
+        move=move
     )
 
     temp_fixed_alg = SMC(fk=tempering_fixed, N=nparticles, ESSrmin=1., verbose=False)
@@ -95,7 +99,7 @@ def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chai
     tempering = ssp.AdaptiveTempering(
         model=model_fnsamp_atemp,
         wastefree=False,
-        len_chain=len_chain,
+        move=move,
         ESSrmin=ESSrmin
     )
 
@@ -127,7 +131,7 @@ def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chai
     tempering = ssp.AdaptiveTempering(
         model=model_exact,
         wastefree=False,
-        len_chain=len_chain,
+        move=move,
         ESSrmin=ESSrmin
     )
 
