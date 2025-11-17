@@ -72,6 +72,32 @@ plt.legend(title="Index", fontsize=9, loc="best")
 
 plt.savefig(os.path.join(results_folder, "plot_mse_ci_intervals.png"))
 
+# 3. MSE with CI wrt. runtime
+
+plt.figure(figsize=(6, 5))
+colors = plt.cm.viridis(np.linspace(0, 1, len(runtime_ansamp)))  # choose colormap
+
+for i, (cost, mse, ci_low, ci_high, color) in enumerate(zip(runtime_ansamp, mse_ansamp, ci_ansamp[0], ci_ansamp[1], colors)):
+    # CI as vertical line
+    plt.plot([cost, cost], [ci_low, ci_high], color=color, linewidth=2)
+    # Point marker
+    plt.scatter(cost, mse, color=color, s=50, label=f"{i}")
+    # Label near point
+    plt.text(cost * 1.1, mse * 1.05, str(i), fontsize=12, color=color, ha="center")
+
+plt.xscale("log")
+plt.yscale("log")
+plt.xlabel("Runtime", fontsize=12)
+plt.ylabel("MSE on the ground truth", fontsize=12)
+plt.title("MSE with 95% CI vs runtime", fontsize=13)
+plt.grid(True, which="both", linestyle="--", linewidth=0.7)
+plt.tight_layout()
+
+# Optional legend
+plt.legend(title="Index", fontsize=9, loc="best")
+
+plt.savefig(os.path.join(results_folder, "plot_mse_ci_intervals_runtime.png"))
+
 # === LOAD CHAIN SETUPS ===
 with open(json_path, "r") as f:
     chain_setup = json.load(f)
