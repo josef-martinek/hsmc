@@ -265,6 +265,10 @@ class IPModelInexactFixHD(IPModelHD):
     def nsamp(self, value):
         raise AttributeError("nsamp is read only in model with fixed number of samples.")
 
+    def cost_normalising_const(self):
+        const = WOSHD.points_in().shape[0]
+        return const
+
 
 class IPModelInexactAdaptHD(IPModelHD):
     def __init__(self, prior, data_noise_cov, data):
@@ -289,3 +293,7 @@ class IPModelInexactAdaptHD(IPModelHD):
     @nsamp.setter
     def nsamp(self, value):
         self._nsamp = value
+
+    def cost_normalising_const(self):
+        const = WOSHD.points_in().shape[0]
+        return const

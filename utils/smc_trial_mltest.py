@@ -56,6 +56,11 @@ def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, chain, N
         # Nr of chain steps = length-1. Also MCWM makes two evals per step.
     else:
         sim_cost_ansamp = sum(tempering.solver_nsamp[1:-1])*((chain.len_chain1-1)*(2/chain.fine_over_coarse)+(chain.len_chain2-1))
+    sim_cost_ansamp += tempering.solver_nsamp[0] #Cost of Likelihood eval in initialisation
+    for i in range(my_temp_alg.t): # Cost of generalised IS
+        if tempering.solver_nsamp[i+1]>tempering.solver_nsamp[i]:
+            sim_cost_ansamp += tempering.solver_nsamp[i+1]
+    sim_cost_ansamp = sim_cost_ansamp * model_inex_adapt.cost_normalising_const()
 
     return (runtime_ansamp,
             mse_ansamp,
