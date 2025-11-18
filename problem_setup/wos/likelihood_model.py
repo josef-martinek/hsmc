@@ -242,6 +242,9 @@ class IPModelExactHD(IPModelHD):
     @nsamp.setter
     def nsamp(self, value):
         raise AttributeError("nsamp not used in exact model.")
+    
+    def get_cost(self):
+        return 0
 
 
 class IPModelInexactFixHD(IPModelHD):
@@ -264,6 +267,9 @@ class IPModelInexactFixHD(IPModelHD):
     @nsamp.setter
     def nsamp(self, value):
         raise AttributeError("nsamp is read only in model with fixed number of samples.")
+    
+    def get_cost(self):
+        return self._nsamp * WOSHD.points_in().shape[0]
 
 
 class IPModelInexactAdaptHD(IPModelHD):
@@ -289,3 +295,6 @@ class IPModelInexactAdaptHD(IPModelHD):
     @nsamp.setter
     def nsamp(self, value):
         self._nsamp = value
+
+    def get_cost(self):
+        return self._nsamp * WOSHD.points_in().shape[0]
