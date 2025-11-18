@@ -167,6 +167,7 @@ class TwoStageMCMC(MCMCSequence):
         def func(x_aux):
             x_aux.lprior = self.coarse_model.prior.logpdf(x_aux.theta)
             x_aux.llik = self.coarse_model.loglik(x_aux.theta)
+            x_aux.shared['cost_per_particle'] = x_aux.shared['cost_per_particle'] + self.coarse_model.get_cost()
             if epn > 0.0:
                 x_aux.lpost = x_aux.lprior + epn * x_aux.llik
             else:  # avoid having 0 x Nan
