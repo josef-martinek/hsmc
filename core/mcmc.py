@@ -180,7 +180,6 @@ class TwoStageMCMC(MCMCSequence):
         xout = x.copy()
         ars = []
         for _ in range(self.nsteps1):
-            self.coarse_target(xout)
             ar = self.mcmc1.step(xout, self.coarse_target)
             #print("MCWM ar:", ar)
         if self.nsteps1 > 0:
