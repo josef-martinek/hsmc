@@ -1,5 +1,6 @@
 from particles.smc_samplers import AdaptiveTempering, next_annealing_epn
 import numpy as np
+from particles.smc_samplers import ThetaParticles
 
 class TempAdaptNsampRew(AdaptiveTempering):
 
@@ -9,11 +10,16 @@ class TempAdaptNsampRew(AdaptiveTempering):
         self.ar_tol = ar_tol
         self.solver_nsamp = [self.Nmin]
 
+    def _M0(self, N):
+        x0 = ThetaParticles(theta=self.model.prior.rvs(size=N))
+        x0.shared["exponents"] = [0.0]
+        x0.shared["path_sampling"] = [0.0]
+        x0.shared["solver_nsamp"] = [self.solver_nsamp[0]]
+        self.current_target(0.0)(x0)
+        return x0
+
     def logG(self, t, xp, x):
         epn = x.shared['exponents'][-1]
-        isStart = np.allclose(epn, 0.)
-        if isStart:
-            x.shared["solver_nsamp"] = [self.solver_nsamp[0]]
         new_epn = next_annealing_epn(epn, self.ESSrmin, x.llik)
         x.shared['exponents'].append(new_epn)
 
