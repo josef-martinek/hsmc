@@ -10,7 +10,7 @@ params = np.random.randn(1, 10)
 npaths = 10
 
 start = time.time()
-print("Number of inner points:", WOSHD.points_in().size)
+print("Number of inner points:", WOSHD.points_in().shape[0])
 u_mc = WOSHD.wos(params, npaths=npaths)    # (n_points, 1)
 time_mc = time.time()
 print("WOS simulation time:", time_mc-start)
