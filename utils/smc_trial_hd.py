@@ -55,11 +55,11 @@ def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chai
         print(f"t={my_temp_alg.t}")
         print(f"solver_nsamp={tempering.solver_nsamp}")
     if resample_move_end:
-        sim_cost_ansamp = sum(tempering.solver_nsamp[1:]) * len_chain #Cost proportional to number of MCMC steps, neglect cost of IS
-        sim_cost_fnsamp_ftemp = nsamp_last_ansamp * my_temp_alg.t * len_chain
+        sim_cost_ansamp = sum(tempering.solver_nsamp[1:]) * (len_chain-1) #Cost proportional to number of MCMC steps, neglect cost of IS
+        sim_cost_fnsamp_ftemp = nsamp_last_ansamp * my_temp_alg.t * (len_chain-1)
     else:
-        sim_cost_ansamp = sum(tempering.solver_nsamp[1:-1]) * len_chain
-        sim_cost_fnsamp_ftemp = nsamp_last_ansamp * (my_temp_alg.t-1) * len_chain
+        sim_cost_ansamp = sum(tempering.solver_nsamp[1:-1]) * (len_chain-1)
+        sim_cost_fnsamp_ftemp = nsamp_last_ansamp * (my_temp_alg.t-1) * (len_chain-1)
     sim_cost_ansamp += tempering.solver_nsamp[0] #Cost of Likelihood eval in initialisation
     sim_cost_fnsamp_ftemp += tempering.solver_nsamp[-1]
     for i in range(my_temp_alg.t): # Cost of generalised IS
@@ -123,9 +123,9 @@ def run_single_smc_trial(data_noise_var, true_sol, prior, ground_truth, len_chai
         estimated_mean_fnsamp_atemp = np.average(temp_alg.X.theta['param'], weights=temp_alg.W, axis=0)
     mse_fnsamp_atemp = np.linalg.norm(estimated_mean_fnsamp_atemp - ground_truth)**2
     if resample_move_end:
-        sim_cost_fnsamp_atemp = nsamp_last_ansamp * temp_alg.t * len_chain
+        sim_cost_fnsamp_atemp = nsamp_last_ansamp * temp_alg.t * (len_chain-1)
     else:
-        sim_cost_fnsamp_atemp = nsamp_last_ansamp * (temp_alg.t-1) * len_chain
+        sim_cost_fnsamp_atemp = nsamp_last_ansamp * (temp_alg.t-1) * (len_chain-1)
     sim_cost_fnsamp_atemp += nsamp_last_ansamp #Cost of lik. eval in initialisation
     sim_cost_fnsamp_atemp = sim_cost_fnsamp_atemp * model_inex_fix.cost_normalising_const() #Cost/measurement → Cost
 
