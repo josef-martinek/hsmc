@@ -15,7 +15,6 @@ class TempAdaptNsampRew(AdaptiveTempering):
         x0.shared["exponents"] = [0.0]
         x0.shared["path_sampling"] = [0.0]
         x0.shared["solver_nsamp"] = [self.solver_nsamp[0]]
-        x0.shared["cost_per_particle"] = 0.
         self.current_target(0.0)(x0)
         return x0
 
@@ -56,7 +55,6 @@ class TempAdaptNsampRew(AdaptiveTempering):
         def func(x):
             x.lprior = self.model.prior.logpdf(x.theta)
             x.llik = self.model.loglik(x.theta, self.solver_nsamp[-1])
-            x.shared['cost_per_particle'] = x.shared['cost_per_particle'] + self.model.get_cost()
             if epn > 0.0:
                 x.lpost = x.lprior + epn * x.llik
             else:  # avoid having 0 x Nan
