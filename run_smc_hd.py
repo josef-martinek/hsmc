@@ -36,9 +36,8 @@ if __name__ == "__main__":
 
     # Generate synthetic data using ground truth
     true_sol = ModelExact.exact_sol(sc.ground_truth_par).reshape(-1,1)
-    observed_data = true_sol + np.random.normal(loc=0., 
-                                                scale=np.sqrt(sc.data_noise_var), 
-                                                size=true_sol.shape)
+    rng_data = np.random.default_rng(seed=81)
+    observed_data = true_sol + rng_data.normal(loc=0., scale=np.sqrt(sc.data_noise_var), size=true_sol.shape)
     print("Observed data generated.")
 
     model = IPModelExactHD(prior=prior, 
