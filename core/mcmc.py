@@ -181,6 +181,9 @@ class TwoStageMCMC(MCMCSequence):
         ars = []
         for _ in range(self.nsteps1):
             ar = self.mcmc1.step(xout, self.coarse_target)
+            #print("MCWM ar:", ar)
+        if self.nsteps1 > 0:
+            target_fine(xout)
         for _ in range(self.nsteps2):
             ar = self.mcmc2.step(xout, target_fine)
             ars.append(ar)
