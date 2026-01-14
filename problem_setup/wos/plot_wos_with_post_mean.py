@@ -8,13 +8,13 @@ import os
 # ---------------------------------------------------------
 # 1. Load truth and run simulations
 # ---------------------------------------------------------
-#params = sc.ground_truth_par
+params = sc.ground_truth_par
 #params = np.zeros(shape=(32,))
 
-results_folder = "data/run_20251113-103422_1_chosen_experiments"
-ref_path = os.path.join(results_folder, "post_mean_ref.npz")
-ref_data = np.load(ref_path)
-params = ref_data["post_mean"]
+#results_folder = "data/run_20251113-103422_1_chosen_experiments"
+#ref_path = os.path.join(results_folder, "post_mean_ref.npz")
+#ref_data = np.load(ref_path)
+#params = ref_data["post_mean"]
 
 npaths = 5
 
@@ -35,58 +35,36 @@ observed_data = u_ex + rng_data.normal(
 )
 
 # ---------------------------------------------------------
-# 2. Build full grid values safely
+# 2. Visualisation: exact field + measurement points
 # ---------------------------------------------------------
 grid = WOSHD.grid_all()        # (nx*ny, 2)
 nx, ny = WOSHD.nx, WOSHD.ny
 
-pts_in = WOSHD.points_in()     # coordinates used in WOS simulation
-pts_in_tuple = set(map(tuple, pts_in))
+pts_in = WOSHD.points_in()     # (M,2) measurement points (polar uniform)
+u_pts  = u_mc[:, 0]            # WOS MC values at measurement points
+u_true = u_ex[:, 0]            # exact values at measurement points
+u_obsv = observed_data[:, 0]   # noisy observed values at measurement points
 
-# Build mask_sparse safely by coordinate equality
-mask_sparse = np.array([tuple(p) in pts_in_tuple for p in grid])
+# ---- Create exact solution only on disk grid points ----
+u_ex_pts = WOSHD.exact_sol_full(params)[:, 0]   # (K,) values
+grid = WOSHD.grid_all()
+r2 = grid[:, 0]**2 + grid[:, 1]**2
+pts_inside = grid[r2<1.0]                         # (K,2) matching u_ex_pts
 
-# Allocate output arrays
-U_mc = np.full(grid.shape[0], np.nan)
-U_ex = np.full(grid.shape[0], np.nan)
-U_obs = np.full(grid.shape[0], np.nan)
+# ---- Plot ----
+plt.figure(figsize=(5, 4))
+sc = plt.scatter(pts_inside[:,0], pts_inside[:,1],
+                 c=u_ex_pts, s=20, cmap='viridis')
+plt.colorbar(sc, label='Exact solution')
+plt.title('Exact solution')
 
-# Assign simulated values
-U_mc[mask_sparse]  = u_mc[:, 0]
-U_ex[mask_sparse]  = u_ex[:, 0]
-U_obs[mask_sparse] = observed_data[:, 0]
+# Overlay measurement points
+plt.scatter(pts_in[:, 0], pts_in[:, 1],
+            marker='x', c='black', s=22, linewidths=1.0,
+            label='measurement points')
 
-# Reshape to 2D
-U_mc_grid  = U_mc.reshape(nx, ny)
-U_ex_grid  = U_ex.reshape(nx, ny)
-U_obs_grid = U_obs.reshape(nx, ny)
-
-# ---- Visualization ----
-plt.figure(figsize=(13, 4))
-
-plt.subplot(1, 2, 1)
-plt.imshow(U_ex_grid.T, origin='lower', extent=[-1,1,-1,1])
-plt.title('Exact')
-plt.colorbar()
-
-plt.subplot(1, 2, 2)
-plt.imshow(U_obs_grid.T, origin='lower', extent=[-1,1,-1,1])
-plt.title('Observed data')
-plt.colorbar()
-
-# plt.subplot(1, 4, 3)
-# plt.imshow(U_mc_grid.T, origin='lower', extent=[-1,1,-1,1])
-# plt.title('WOS MC')
-# plt.colorbar()
-
-# plt.subplot(1, 4, 4)
-# plt.imshow(np.abs(U_ex_grid - U_mc_grid).T, origin='lower', extent=[-1,1,-1,1])
-# plt.title('Abs error')
-# plt.colorbar()
-
+plt.legend(loc='upper right')
+plt.axis('equal')
 plt.tight_layout()
 plt.show()
 
-# ---- Numeric error on interior points ----
-err = u_mc[:,0] - u_ex[:,0]
-print("RMSE (MC vs Exact):", np.sqrt(np.mean(err**2)))
