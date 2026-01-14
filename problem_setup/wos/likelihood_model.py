@@ -12,16 +12,17 @@ class WOSHD:
     # ----- simulation & model constants (tweak as needed) -----
     eps = 1e-3        # stopping threshold (distance to boundary)
     a0 = 0.2          # constant boundary term (matches earlier example)
-    q = 0.0           # decay exponent in boundary series
+    q = 1.1           # decay exponent in boundary series
     R = 1.0           # unit disk
-    r = 0.0           # inner boundary
+    r = 0.5           # inner boundary
 
     # grid for evaluation (cell centres); we evaluate on full grid but only use interior points
-    nx = 81
-    ny = 81
+    nx = 1000
+    ny = 1000
     xs = np.linspace(-1.0, 1.0, nx)
     ys = np.linspace(-1.0, 1.0, ny)
-    stride = 10
+    nr = 5
+    nphi = 40
 
     @classmethod
     def grid_all(cls):
@@ -33,19 +34,16 @@ class WOSHD:
         """Boolean mask of points inside the unit disk for grid_all()."""
         pts = cls.grid_all()
         r2 = pts[:, 0]**2 + pts[:, 1]**2
-        return (r2 < cls.R**2) & (r2 > cls.r**2)
+        return (r2 < cls.R**2) & (r2 >= cls.r**2)
 
     @classmethod
     def points_in(cls):
-        """
-        Return array of points inside the annulus, optionally subsampled.
-        stride: take every `stride`-th point to make measurements sparser.
-        """
-        grid = cls.grid_all()
-        mask = cls.mask_inside()
-        pts_inside = grid[mask]
-        # Take every `stride`th point to make the sampling sparser
-        return pts_inside[::cls.stride]
+        rs = np.linspace(cls.r, cls.R, cls.nr, endpoint=True)
+        thetas = np.linspace(0, 2*np.pi, cls.nphi, endpoint=False)
+
+        pts = [(r * np.cos(t), r * np.sin(t)) for r in rs for t in thetas]
+        return np.array(pts)
+
 
 
     @classmethod
@@ -203,12 +201,22 @@ class WOSHD:
     # ------------------------------------------------------------------
     @classmethod
     def exact_sol(cls, params: np.ndarray) -> np.ndarray:
+        pts = cls.points_in()              # (N_pts, 2)
+        return cls.exact_sol_pts(params, pts)
+    
+    @classmethod
+    def exact_sol_full(cls, params: np.ndarray) -> np.ndarray:
+        grid = cls.grid_all()
+        r2 = grid[:, 0]**2 + grid[:, 1]**2
+        pts_inside = grid[r2<cls.R]
+        return cls.exact_sol_pts(params, pts_inside)
+
+    @classmethod
+    def exact_sol_pts(cls, params: np.ndarray, pts:np.ndarray) -> np.ndarray:
         params = np.asarray(params)
         if params.ndim == 1:
             params = params.reshape(1, -1)
-        n_params = params.shape[0]
 
-        pts = cls.points_in()              # (N_pts, 2)
         x = pts[:, 0]; y = pts[:, 1]
         r = np.hypot(x, y)                 # (N_pts,)
         theta = np.arctan2(y, x)           # (N_pts,)
