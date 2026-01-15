@@ -21,8 +21,8 @@ class WOSHD:
     ny = 1000
     xs = np.linspace(-1.0, 1.0, nx)
     ys = np.linspace(-1.0, 1.0, ny)
-    nr = 5
-    nphi = 40
+    nr = 3
+    nphi = 10
 
     @classmethod
     def grid_all(cls):
