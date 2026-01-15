@@ -71,6 +71,7 @@ if __name__ == "__main__":
     post_mean = np.mean(post_samp, axis=0)
     print("Posterior mean:", post_mean)
     np.savez("data/post_mean_test.npz", post_mean=post_mean)
+    np.savez("data/post_samp.npz", post_samp=my_temp_alg.X.theta['param'])
     post_samp_thinned = post_samp[:,::thinning_step]
 
     # Create a DataFrame for seaborn
