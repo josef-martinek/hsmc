@@ -12,7 +12,7 @@ class WOSHD:
     # ----- simulation & model constants (tweak as needed) -----
     eps = 1e-3        # stopping threshold (distance to boundary)
     a0 = 0.2          # constant boundary term (matches earlier example)
-    q = 1.1           # decay exponent in boundary series
+    q = 1.01           # decay exponent in boundary series
     R = 1.0           # unit disk
     r = 0.5           # inner boundary
 
@@ -21,8 +21,8 @@ class WOSHD:
     ny = 1000
     xs = np.linspace(-1.0, 1.0, nx)
     ys = np.linspace(-1.0, 1.0, ny)
-    nr = 3
-    nphi = 10
+    nr = 5
+    nphi = 4
 
     @classmethod
     def grid_all(cls):
@@ -129,6 +129,8 @@ class WOSHD:
         # Determine sampling strategy
         if npaths < 1.0:
             sampled_idx = np.random.choice(N_pts, size=int(round(N_pts * npaths)), replace=False)
+            if int(round(N_pts * npaths))<1:
+                print("Warning: The coarse model takes 0 samples.")
             npaths_int = 1
         else:
             sampled_idx = np.arange(N_pts)

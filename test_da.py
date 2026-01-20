@@ -1,12 +1,15 @@
 import numpy as np
 from particles import distributions as dists
 from core.samplers import TempAdaptNsampNoRew
-from core.mcmc import DA, NoisyMetropolisCal, TwoStageMCMC
+from core.mcmc import DA, NoisyMetropolisCal, TwoStageMCMC, RWRegCal
 from particles.smc_samplers import AdaptiveMCMCSequence, ArrayRandomWalk
 from particles.core import SMC
-from problem_setup.toy_problem.problem_parameters import SamplerConfig as sc
-from problem_setup.toy_problem.likelihood_model import IPModelInexactAdaptHD
-from problem_setup.toy_problem.likelihood_model import MatVecModel as ModelExact
+# from problem_setup.toy_problem.problem_parameters import SamplerConfig as sc
+# from problem_setup.toy_problem.likelihood_model import IPModelInexactAdaptHD
+# from problem_setup.toy_problem.likelihood_model import MatVecModel as ModelExact
+from problem_setup.wos.problem_parameters import SamplerConfig as sc
+from problem_setup.wos.likelihood_model import IPModelExactHD, IPModelInexactFixHD, IPModelInexactAdaptHD
+from problem_setup.wos.likelihood_model import WOSHD as ModelExact
 import logging
 from matplotlib import pyplot as plt
 import seaborn as sb
@@ -22,7 +25,7 @@ if __name__ == "__main__":
     if len(sc.ground_truth_par) == 1:
         logging.error("This script is only for multi dimensional inference.")
 
-    param_dim = len(sc.ground_truth_par)
+    param_dim = sc.param_dim
     prior = dists.StructDist({'param': dists.MvNormal(loc=np.zeros(param_dim),
                                                       cov=sc.prior_marg_var*np.eye(param_dim))})
 
@@ -34,8 +37,8 @@ if __name__ == "__main__":
 
     # Set up DA
     len_coarse_chain = 0
-    len_fine_chain = 10
-    fine_over_coarse_nsamp = 10
+    len_fine_chain = 2
+    fine_over_coarse_nsamp = 64
     model_fine = IPModelInexactAdaptHD(prior=prior,
                                 data_noise_cov=sc.data_noise_var,
                                 data=observed_data)
@@ -43,7 +46,7 @@ if __name__ == "__main__":
                                          data_noise_cov=sc.data_noise_var,
                                          data=observed_data)
     mcmc_coarse = NoisyMetropolisCal()
-    mcmc_fine = ArrayRandomWalk()
+    mcmc_fine = RWRegCal()
     two_stage_chain = TwoStageMCMC(mcmc1=mcmc_coarse,
                                    mcmc2=mcmc_fine,
                                    len_chain1=len_coarse_chain,
@@ -69,19 +72,20 @@ if __name__ == "__main__":
     print(f"Runtime: {end_time-start_time}")
 
     post_samp = my_temp_alg.X.theta['param']
+    np.savez("data/post_samp.npz", post_samp=my_temp_alg.X.theta['param'])
 
-    # Create a DataFrame for seaborn
-    df = pd.DataFrame(post_samp, columns=[f'Param {i+1}' for i in range(post_samp.shape[1])])
+    # # Create a DataFrame for seaborn
+    # df = pd.DataFrame(post_samp, columns=[f'Param {i+1}' for i in range(post_samp.shape[1])])
 
-    # Create pair plot
-    g = sb.pairplot(df, diag_kind='kde', corner=False,
-                    plot_kws={'alpha': 0.5, 's': 15},  # small transparent points
-                    height=2.5)
+    # # Create pair plot
+    # g = sb.pairplot(df, diag_kind='kde', corner=False,
+    #                 plot_kws={'alpha': 0.5, 's': 15},  # small transparent points
+    #                 height=2.5)
 
-    # Optionally, overlay contour density estimates
-    g.map_upper(sb.kdeplot, levels=5, color="C1")
-    g.map_lower(sb.kdeplot, cmap="Blues_d", levels=5)
+    # # Optionally, overlay contour density estimates
+    # g.map_upper(sb.kdeplot, levels=5, color="C1")
+    # g.map_lower(sb.kdeplot, cmap="Blues_d", levels=5)
 
-    # Adjust layout and show
-    plt.tight_layout()
-    plt.show()
+    # # Adjust layout and show
+    # plt.tight_layout()
+    # plt.show()

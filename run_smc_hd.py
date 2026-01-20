@@ -46,7 +46,7 @@ if __name__ == "__main__":
     # model = IPModelInexactFixHD(prior=prior, 
     #                                   data_noise_cov=sc.data_noise_var, 
     #                                   data=observed_data,
-    #                                   nsamp=1000)
+    #                                   nsamp=128)
     # model = IPModelInexactAdaptHD(prior=prior,
     #                             data_noise_cov=sc.data_noise_var,
     #                             data=observed_data)
@@ -55,6 +55,7 @@ if __name__ == "__main__":
     move = ssp.AdaptiveMCMCSequence(mcmc=mcmc, adaptive=False, len_chain=sc.len_chain)
     fk_tempering = ssp.AdaptiveTempering(model=model, wastefree=False, ESSrmin=sc.ESS_rmin, move=move)
     #fk_tempering = ssp.AdaptiveTempering(model=model, wastefree=False, len_chain=sc.len_chain, ESSrmin=sc.ESS_rmin)
+    #fk_tempering = TempAdaptNsampNoRew(Nmin=sc.Nmin, ar_tol=sc.ar_tol, model=model, wastefree=False, ESSrmin=sc.ESS_rmin, move=move)
     #fk_tempering = TempAdaptNsampNoRew(Nmin=sc.Nmin, ar_tol=sc.ar_tol, model=model, wastefree=False, len_chain=sc.len_chain, ESSrmin=sc.ESS_rmin)
 
     my_temp_alg = SMC(fk=fk_tempering, N=sc.n_particles, ESSrmin=1., 
@@ -69,23 +70,23 @@ if __name__ == "__main__":
 
     post_samp = my_temp_alg.X.theta['param']
     post_mean = np.mean(post_samp, axis=0)
-    print("Posterior mean:", post_mean)
-    np.savez("data/post_mean_test.npz", post_mean=post_mean)
-    np.savez("data/post_samp.npz", post_samp=my_temp_alg.X.theta['param'])
+    #print("Posterior mean:", post_mean)
+    np.savez("data/post_mean_ref.npz", post_mean=post_mean)
+    np.savez("data/post_samp_ref.npz", post_samp=my_temp_alg.X.theta['param'])
     post_samp_thinned = post_samp[:,::thinning_step]
 
-    # Create a DataFrame for seaborn
-    df = pd.DataFrame(post_samp_thinned, columns=[f'Param {thinning_step * i+1}' for i in range(post_samp_thinned.shape[1])])
+    # # Create a DataFrame for seaborn
+    # df = pd.DataFrame(post_samp_thinned, columns=[f'Param {thinning_step * i+1}' for i in range(post_samp_thinned.shape[1])])
 
-    # Create pair plot
-    g = sb.pairplot(df, diag_kind='kde', corner=False,
-                    plot_kws={'alpha': 0.5, 's': 15},  # small transparent points
-                    height=2.5)
+    # # Create pair plot
+    # g = sb.pairplot(df, diag_kind='kde', corner=False,
+    #                 plot_kws={'alpha': 0.5, 's': 15},  # small transparent points
+    #                 height=2.5)
 
-    # Optionally, overlay contour density estimates
-    g.map_upper(sb.kdeplot, levels=5, color="C1")
-    g.map_lower(sb.kdeplot, cmap="Blues_d", levels=5)
+    # # Optionally, overlay contour density estimates
+    # g.map_upper(sb.kdeplot, levels=5, color="C1")
+    # g.map_lower(sb.kdeplot, cmap="Blues_d", levels=5)
 
-    # Adjust layout and show
-    plt.tight_layout()
-    plt.show()
+    # # Adjust layout and show
+    # plt.tight_layout()
+    # plt.show()
