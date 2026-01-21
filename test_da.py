@@ -4,6 +4,7 @@ from core.samplers import TempAdaptNsampNoRew
 from core.mcmc import DA, NoisyMetropolisCal, TwoStageMCMC, RWRegCal
 from particles.smc_samplers import AdaptiveMCMCSequence, ArrayRandomWalk
 from particles.core import SMC
+import particles.smc_samplers as ssp
 # from problem_setup.toy_problem.problem_parameters import SamplerConfig as sc
 # from problem_setup.toy_problem.likelihood_model import IPModelInexactAdaptHD
 # from problem_setup.toy_problem.likelihood_model import MatVecModel as ModelExact
@@ -31,17 +32,22 @@ if __name__ == "__main__":
 
     # Generate synthetic data using ground truth
     true_sol = ModelExact.exact_sol(sc.ground_truth_par).reshape(-1,1)
-    observed_data = true_sol + np.random.normal(loc=0., 
+    rng_data = np.random.default_rng(seed=81)
+    observed_data = true_sol + rng_data.normal(loc=0., 
                                                 scale=np.sqrt(sc.data_noise_var),
                                                 size=true_sol.shape)
 
     # Set up DA
     len_coarse_chain = 0
-    len_fine_chain = 2
-    fine_over_coarse_nsamp = 64
-    model_fine = IPModelInexactAdaptHD(prior=prior,
-                                data_noise_cov=sc.data_noise_var,
-                                data=observed_data)
+    len_fine_chain = 80
+    fine_over_coarse_nsamp = 32
+    # model_fine = IPModelInexactAdaptHD(prior=prior,
+    #                             data_noise_cov=sc.data_noise_var,
+    #                             data=observed_data)
+    model_fine = IPModelInexactFixHD(prior=prior,
+                                     data_noise_cov=sc.data_noise_var,
+                                     data=observed_data,
+                                     nsamp=sc.Nmin)
     model_coarse = IPModelInexactAdaptHD(prior=prior,
                                          data_noise_cov=sc.data_noise_var,
                                          data=observed_data)
@@ -54,18 +60,23 @@ if __name__ == "__main__":
                                    coarse_model=model_coarse,
                                    fine_over_coarse=fine_over_coarse_nsamp)
 
-    fk_tempering = TempAdaptNsampNoRew(Nmin=sc.Nmin,
-                                       ar_tol=sc.ar_tol,
-                                       model=model_fine,
-                                       wastefree=False,
-                                       ESSrmin=sc.ESS_rmin,
-                                       move=two_stage_chain)
+    fk_tempering = ssp.Tempering(model=model_fine,
+                                 wastefree=False,
+                                 exponents=[1.],
+                                 move=two_stage_chain)
+    # fk_tempering = TempAdaptNsampNoRew(Nmin=sc.Nmin,
+    #                                    ar_tol=sc.ar_tol,
+    #                                    model=model_fine,
+    #                                    wastefree=False,
+    #                                    ESSrmin=sc.ESS_rmin,
+    #                                    move=two_stage_chain)
 
     my_temp_alg = SMC(fk=fk_tempering, N=sc.n_particles, ESSrmin=1., 
                                 verbose=True)
     start_time = time.time()
     my_temp_alg.run()
     if resample_move_end:
+        my_temp_alg.X.shared["solver_nsamp"] = [sc.Nmin] # TODO DON'T FORGET TO DELETE THIS (USEFUL ONLY FOR 2stage 1IS STEP TESTING)
         my_temp_alg.setup_auxiliary_weights()
         my_temp_alg.resample_move()
     end_time = time.time()
