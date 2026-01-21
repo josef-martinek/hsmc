@@ -5,7 +5,7 @@ from problem_setup.wos.likelihood_model import IPModelExactHD, IPModelInexactFix
 from problem_setup.wos.likelihood_model import WOSHD as ModelExact
 
 # --- Configuration ---
-n_plot = 500
+n_plot = 400
 theta = np.linspace(0, 2*np.pi, n_plot)   # evaluation grid
 
 # --- Ground truth boundary function ---
@@ -15,7 +15,9 @@ h_true = h_true.squeeze()  # -> (n_plot,)
 
 # --- Posterior samples ---
 # post_samp: shape (N, s)
-with np.load("data/post_samp.npz") as data:
+with np.load("data/post_samp_ref.npz") as data:
+#with np.load("data/post_samp_ref_inex.npz") as data:
+#with np.load("data/post_samp.npz") as data:
     post_samp = data["post_samp"]
 N, s = post_samp.shape
 
