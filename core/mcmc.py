@@ -186,6 +186,7 @@ class TwoStageMCMC(MCMCSequence):
             target_fine(xout)
         for _ in range(self.nsteps2):
             ar = self.mcmc2.step(xout, target_fine)
+            #print("PMMH ar:", ar)
             ars.append(ar)
         prev_ars = x.shared.get("acc_rates", [])
         xout.shared["acc_rates"] = prev_ars + [ars]  # a list of lists
