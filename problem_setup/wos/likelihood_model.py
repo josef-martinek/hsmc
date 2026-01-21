@@ -12,7 +12,7 @@ class WOSHD:
     # ----- simulation & model constants (tweak as needed) -----
     eps = 1e-3        # stopping threshold (distance to boundary)
     a0 = 0.2          # constant boundary term (matches earlier example)
-    q = 1.01           # decay exponent in boundary series
+    q = 1.1           # decay exponent in boundary series
     R = 1.0           # unit disk
     r = 0.5           # inner boundary
 
