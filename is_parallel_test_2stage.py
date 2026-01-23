@@ -22,17 +22,18 @@ else:
 # -----------------------------
 RESULTS_FOLDER = "data/smc_results_test"   # or info.create_results_folder()
 #RESULTS_FOLDER = info.create_results_folder()
-NUM_CPUS = 0
+NUM_CPUS = 1
 SEED = 1111
 resample_move_end = True
 
 # Each dim computed separately for now
 # Nr of inference runs for each param in param_seq
-N_runs = 2
-percent_step = 10
+N_runs = 1
+percent_step = 50
+percent_values = int(100/percent_step)+1
 
-percents_on_coarse = np.linspace(0, 100, percent_step)
-budgets = np.array([10, 20, 40, 80]) #in terms of fine chain steps
+percents_on_coarse = np.linspace(0, 1., percent_values)
+budgets = np.array([10, 20]) #in terms of fine chain STEPS
 
 
 # -----------------------------
@@ -45,7 +46,8 @@ np.random.seed(SEED)
 # Export reproducibility info
 info.export_full_conda_env(target_folder=RESULTS_FOLDER)
 info.copy_problem_setup(target_folder=RESULTS_FOLDER, module=sc)
-info.copy_problem_setup(target_folder=RESULTS_FOLDER, module=utils.run_single_is_trial)
+info.copy_problem_setup(target_folder=RESULTS_FOLDER, module=utils.is_get_ref_sol)
+info.copy_problem_setup(target_folder=RESULTS_FOLDER, module=utils.is_trial)
 info.copy_problem_setup(target_folder=RESULTS_FOLDER, module=ModelExact)
 info.export_pip_requirements(target_folder=RESULTS_FOLDER)
 info.export_git_commit(target_folder=RESULTS_FOLDER)
@@ -72,7 +74,12 @@ true_sol = ModelExact.exact_sol(gt).reshape(-1,1)  # fixed "truth" used by all t
 rng_data = np.random.default_rng(seed=81)
 observed_data = true_sol + rng_data.normal(loc=0., scale=np.sqrt(sc.data_noise_var), size=true_sol.shape)
 
-post_samp_ref_exact, post_samp_ref_wos = get_ref_sols()
+print("Computing reference solutions...")
+post_samp_ref_exact, post_samp_ref_wos = get_ref_sols(prior,
+                                                      sc.data_noise_var,
+                                                      observed_data,
+                                                      sc.Nmin)
+print("Reference solutions computed.")
 
 # Storage (lists; will save as arrays)
 avg_runtimes = []
@@ -97,12 +104,10 @@ for budget in budgets:
         for run_idx in range(N_runs):
             ref = wrapped_trial.remote(
                 sc.data_noise_var,
-                true_sol,
                 prior,
-                gt,
                 sc.Nmin,
                 sc.n_particles,
-                resample_move_end,
+                sc.fine_over_coarse_nsamp,
                 run_idx,
                 observed_data,
                 budget,
@@ -146,7 +151,7 @@ while pending:
     Wmean_wrt_wos = np.mean(W_wrt_wos)
     W_ex_by_setup.append(Wmean_wrt_ex)
     W_wos_by_setup.append(Wmean_wrt_wos)
-    setups.append[setup]
+    setups.append(setup)
 
     n_done += 1
     if n_done % max(1, total // 20) == 0 or n_done == total:
@@ -162,7 +167,7 @@ np.savez(
     os.path.join(RESULTS_FOLDER, "smc_results.npz"),
     n_runs=N_runs,
     observed_data=observed_data, #Can be None
-    avg_runtimes_ansamp=np.array(avg_runtimes),
+    avg_runtimes_ansamp=np.array(avg_runtimes), #TODO this is empty
     W_ex_by_setup=np.array(W_ex_by_setup),
     W_wos_by_setup=np.array(W_wos_by_setup),
     setups=np.array(setups)
