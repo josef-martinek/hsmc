@@ -53,6 +53,7 @@ if __name__ == "__main__":
 
     mcmc = MCMC.RWRegCal()
     move = ssp.AdaptiveMCMCSequence(mcmc=mcmc, adaptive=False, len_chain=sc.len_chain)
+    #fk_tempering = ssp.Tempering(model=model, wastefree=False, exponents=[1.], move=move)
     fk_tempering = ssp.AdaptiveTempering(model=model, wastefree=False, ESSrmin=sc.ESS_rmin, move=move)
     #fk_tempering = ssp.AdaptiveTempering(model=model, wastefree=False, len_chain=sc.len_chain, ESSrmin=sc.ESS_rmin)
     #fk_tempering = TempAdaptNsampNoRew(Nmin=sc.Nmin, ar_tol=sc.ar_tol, model=model, wastefree=False, ESSrmin=sc.ESS_rmin, move=move)
