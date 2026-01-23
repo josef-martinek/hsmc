@@ -8,13 +8,20 @@ from numpy import random
 
 class RWRegCal(ArrayRandomWalk):
 
+    def __init__(self, eye_prop=False):
+        super().__init__()
+        self.eye_prop = eye_prop
+
     def calibrate(self, W, x):
         arr = view_2d_array(x.theta)
         N, d = arr.shape
         m, cov = rs.wmean_and_cov(W, arr)
         cov_reg = cov + 1e-8 * np.eye(N=cov.shape[0])
         scale = 2.38 / np.sqrt(d)
-        x.shared["chol_cov"] = scale * linalg.cholesky(cov_reg, lower=True)
+        if self.eye_prop:
+            x.shared["chol_cov"] = scale * np.eye(N=cov.shape[0])
+        else:
+            x.shared["chol_cov"] = scale * linalg.cholesky(cov_reg, lower=True)
 
 
 class RWUnc(ArrayMetropolis):

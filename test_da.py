@@ -52,7 +52,7 @@ if __name__ == "__main__":
                                          data_noise_cov=sc.data_noise_var,
                                          data=observed_data)
     mcmc_coarse = NoisyMetropolisCal()
-    mcmc_fine = RWRegCal()
+    mcmc_fine = RWRegCal(eye_prop=True)
     two_stage_chain = TwoStageMCMC(mcmc1=mcmc_coarse,
                                    mcmc2=mcmc_fine,
                                    len_chain1=len_coarse_chain,
