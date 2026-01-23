@@ -17,18 +17,18 @@ def get_ref_sols(prior, data_noise_var, data, nsamp_fix):
                                       data=data,
                                       nsamp=nsamp_fix)
     mcmc = MCMC.RWRegCal()
-    move = ssp.AdaptiveMCMCSequence(mcmc=mcmc, adaptive=False, len_chain=10)
-    temp_ex = ssp.AdaptiveTempering(model=model_ex, wastefree=False, ESSrmin=0.4, move=move)
-    temp_wos = ssp.AdaptiveTempering(model=model_wos, wastefree=False, ESSrmin=0.4, move=move)
+    move = ssp.AdaptiveMCMCSequence(mcmc=mcmc, adaptive=False, len_chain=100)
+    temp_ex = ssp.AdaptiveTempering(model=model_ex, wastefree=False, ESSrmin=0.9, move=move)
+    temp_wos = ssp.AdaptiveTempering(model=model_wos, wastefree=False, ESSrmin=0.9, move=move)
 
-    alg_ex = SMC(fk=temp_ex, N=100, ESSrmin=1., verbose=True)
+    alg_ex = SMC(fk=temp_ex, N=1000, ESSrmin=1., verbose=True)
     alg_ex.run()
     alg_ex.setup_auxiliary_weights()
     alg_ex.resample_move()
     post_samp_ex = alg_ex.X.theta['param']
     print("Exact reference sol. computed.")
 
-    alg_wos = SMC(fk=temp_wos, N=100, ESSrmin=1., verbose=True)
+    alg_wos = SMC(fk=temp_wos, N=1000, ESSrmin=1., verbose=True)
     alg_wos.run()
     alg_wos.setup_auxiliary_weights()
     alg_wos.resample_move()

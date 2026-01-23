@@ -22,18 +22,18 @@ else:
 # -----------------------------
 RESULTS_FOLDER = "data/smc_results_test"   # or info.create_results_folder()
 #RESULTS_FOLDER = info.create_results_folder()
-NUM_CPUS = 1
+NUM_CPUS = 0
 SEED = 1111
 resample_move_end = True
 
 # Each dim computed separately for now
 # Nr of inference runs for each param in param_seq
-N_runs = 1
-percent_step = 50
+N_runs = 10
+percent_step = 2
 percent_values = int(100/percent_step)+1
 
 percents_on_coarse = np.linspace(0, 1., percent_values)
-budgets = np.array([10, 20]) #in terms of fine chain STEPS
+budgets = np.array([10, 20, 40, 80]) #in terms of fine chain STEPS
 
 
 # -----------------------------
@@ -152,6 +152,9 @@ while pending:
     W_ex_by_setup.append(Wmean_wrt_ex)
     W_wos_by_setup.append(Wmean_wrt_wos)
     setups.append(setup)
+    #print("Setup:", setup)
+    #print("Wass dist:", Wmean_wrt_ex)
+    #print("")
 
     n_done += 1
     if n_done % max(1, total // 20) == 0 or n_done == total:
