@@ -22,9 +22,10 @@ else:
 # -----------------------------
 RESULTS_FOLDER = "data/smc_results_test"   # or info.create_results_folder()
 #RESULTS_FOLDER = info.create_results_folder()
-NUM_CPUS = 0
+NUM_CPUS = 8
 SEED = 1111
 resample_move_end = True
+WOS_ref_sol = False # If this is false, then WOS reference solution contains zeros.
 
 # Each dim computed separately for now
 # Nr of inference runs for each param in param_seq
@@ -78,7 +79,8 @@ print("Computing reference solutions...")
 post_samp_ref_exact, post_samp_ref_wos = get_ref_sols(prior,
                                                       sc.data_noise_var,
                                                       observed_data,
-                                                      sc.Nmin)
+                                                      sc.Nmin,
+                                                      WOS_ref_sol)
 print("Reference solutions computed.")
 
 # Storage (lists; will save as arrays)
@@ -173,7 +175,8 @@ np.savez(
     avg_runtimes_ansamp=np.array(avg_runtimes), #TODO this is empty
     W_ex_by_setup=np.array(W_ex_by_setup),
     W_wos_by_setup=np.array(W_wos_by_setup),
-    setups=np.array(setups)
+    setups=np.array(setups),
+    WOS_ref_sol = WOS_ref_sol
 )
 
 print(f"\nSaved results to {os.path.join(RESULTS_FOLDER, 'smc_results.npz')} and ...chain_setup.json")

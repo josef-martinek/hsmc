@@ -7,7 +7,7 @@ from particles.core import SMC
 import core.mcmc as MCMC
 from problem_setup.wos.likelihood_model import IPModelExactHD, IPModelInexactFixHD, IPModelInexactAdaptHD
 
-def get_ref_sols(prior, data_noise_var, data, nsamp_fix):
+def get_ref_sols(prior, data_noise_var, data, nsamp_fix, WOS):
 
     model_ex = IPModelExactHD(prior=prior, 
                                data_noise_cov=data_noise_var, 
@@ -28,11 +28,16 @@ def get_ref_sols(prior, data_noise_var, data, nsamp_fix):
     post_samp_ex = alg_ex.X.theta['param']
     print("Exact reference sol. computed.")
 
-    alg_wos = SMC(fk=temp_wos, N=1000, ESSrmin=1., verbose=True)
-    alg_wos.run()
-    alg_wos.setup_auxiliary_weights()
-    alg_wos.resample_move()
-    post_samp_wos = alg_wos.X.theta['param']
-    print("WOS reference sol. computed")
+    if WOS:
+        alg_wos = SMC(fk=temp_wos, N=1000, ESSrmin=1., verbose=True)
+        alg_wos.run()
+        alg_wos.setup_auxiliary_weights()
+        alg_wos.resample_move()
+        post_samp_wos = alg_wos.X.theta['param']
+        print("WOS reference sol. computed")
 
-    return post_samp_ex, post_samp_wos
+        return post_samp_ex, post_samp_wos
+
+    else:
+        print("No WOS reference solution.")
+        return post_samp_ex, np.zeros_like(post_samp_ex)
