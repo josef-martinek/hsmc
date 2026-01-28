@@ -3,16 +3,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 import importlib.util
 from collections import defaultdict
+# Currently what I'm doing in this script is for each budget
+# find the optimal resource allocation. Do this for each run
+# and then average over the minima. One could also do it the
+# other way around, first average over the runs and from this
+# get the minimum
 
 # -----------------------------
 # CONFIG
 # -----------------------------
 RESULTS_FOLDERS = [
-    "data/run_20260123-191029_",
-    "data/run_20260123-191355_",
-    "data/run_20260123-191846_",
-    "data/run_20260123-194223_",
-    "data/run_20260124-105847_"
+    "data/run_20260127-204221_",
+    "data/run_20260127-193055_"
 ]
 CI_Z = 1.96   # 95% CI
 
@@ -56,7 +58,14 @@ fig_wos, ax_wos = plt.subplots(figsize=(7, 5))
 cmap = plt.cm.viridis
 colors = cmap(np.linspace(0.2, 0.9, len(RESULTS_FOLDERS)))
 
-print("\n===== ERROR SUMMARY =====\n")
+error_summary_lines = []
+error_summary_lines.append("===== ERROR SUMMARY =====\n")
+error_summary_lines.append("Results folders used:\n")
+
+for rf in RESULTS_FOLDERS:
+    error_summary_lines.append(f"  - {rf}")
+
+error_summary_lines.append("")  # blank line
 
 # -----------------------------
 # Main loop
@@ -117,36 +126,80 @@ for idx, (color, RESULTS_FOLDER) in enumerate(zip(colors, RESULTS_FOLDERS)):
     )
 
     # ---- Print diagnostics ----
-    print(f"Dimension d = {param_dim}")
+    header = f"Dimension d = {param_dim}"
+    print(header)
+    error_summary_lines.append(header)
     for b in budgets:
-        ex_vals = np.concatenate(list(results_ex[b].values()))
-        wos_vals = np.concatenate(list(results_wos[b].values()))
 
-        print(
+        # ---- Exact ----
+        percents_ex = sorted(results_ex[b].keys())
+        errors_ex = np.array([
+            results_ex[b][p] for p in percents_ex
+        ]).T  # (n_runs, n_percents)
+
+        best_ex_mean  = np.mean(np.min(errors_ex, axis=1))
+        worst_ex_mean = np.mean(np.max(errors_ex, axis=1))
+        fine_ex_mean  = np.mean(results_ex[b][0.0])
+
+        # ---- WOS ----
+        percents_wos = sorted(results_wos[b].keys())
+        errors_wos = np.array([
+            results_wos[b][p] for p in percents_wos
+        ]).T  # (n_runs, n_percents)
+
+        best_wos_mean  = np.mean(np.min(errors_wos, axis=1))
+        worst_wos_mean = np.mean(np.max(errors_wos, axis=1))
+        fine_wos_mean  = np.mean(results_wos[b][0.0])
+
+        line = (
             f"  Budget={b:>6} | "
-            f"Exact: best={ex_vals.min():.1e}, " #Here replace by mean of minima
-            f"fine={np.mean(results_ex[b][0.0]):.1e}, "
-            f"worst={ex_vals.max():.1e} | " #Here also replace by mean of maxima
-            f"WOS: best={wos_vals.min():.1e}, "
-            f"fine={np.mean(results_wos[b][0.0]):.1e}, "
-            f"worst={wos_vals.max():.1e}"
+            f"Exact: best={best_ex_mean:.1e}, "
+            f"fine={fine_ex_mean:.1e}, "
+            f"worst={worst_ex_mean:.1e} | "
+            f"WOS: best={best_wos_mean:.1e}, "
+            f"fine={fine_wos_mean:.1e}, "
+            f"worst={worst_wos_mean:.1e}"
         )
+
+        print(line)
+        error_summary_lines.append(line)
+
     print()
+    error_summary_lines.append("")
+
 
 # -----------------------------
 # Final styling (unchanged)
 # -----------------------------
 for ax, title in zip(
     [ax_ex, ax_wos],
-    ["Optimal budget allocation (Exact)", "Optimal budget allocation (WOS)"]
+    ["Optimal budget allocation", "Optimal budget allocation (WOS)"]
 ):
     ax.set_xscale("log")
-    ax.set_xlabel("Budget (fine chain steps)", fontsize=13)
-    ax.set_ylabel("Optimal fraction on coarse level", fontsize=13)
+    ax.set_xlabel("Total Budget (fine chain steps)", fontsize=13)
+    ax.set_ylabel("Fraction spent on coarse level", fontsize=13)
     ax.set_title(title, fontsize=14)
     ax.grid(True, which="both", linestyle="--", alpha=0.6)
     ax.legend(ncol=2)
 
 fig_ex.tight_layout()
 fig_wos.tight_layout()
+
+for RESULTS_FOLDER in RESULTS_FOLDERS:
+    fig_ex.savefig(
+        os.path.join(RESULTS_FOLDER, "optimal_budget_allocation_exact.png"),
+        dpi=300, bbox_inches="tight"
+    )
+    fig_wos.savefig(
+        os.path.join(RESULTS_FOLDER, "optimal_budget_allocation_wos.png"),
+        dpi=300, bbox_inches="tight"
+    )
+
 plt.show()
+
+summary_text = "\n".join(error_summary_lines)
+
+for RESULTS_FOLDER in RESULTS_FOLDERS:
+    with open(os.path.join(RESULTS_FOLDER, "error_summary.txt"), "w") as f:
+        f.write(summary_text)
+
