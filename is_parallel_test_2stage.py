@@ -125,6 +125,8 @@ print(f"Submitted {len(submitted_refs)} tasks in {time.time() - submit_start:.2f
 # -----------------------------
 W_ex_by_setup = []
 W_wos_by_setup = []
+Wmax_ex_by_setup = []
+Wmax_wos_by_setup = []
 setups = []
 
 pending = set(submitted_refs)
@@ -149,10 +151,14 @@ while pending:
                                            post_samp_ref_exact[:,i])
         W_wrt_wos[i] = wasserstein_distance(result[:, i],
                                             post_samp_ref_wos[:,i])
+    Wmax_wrt_ex = np.max(W_wrt_ex)
+    Wmax_wrt_wos = np.max(W_wrt_wos)
     Wmean_wrt_ex = np.mean(W_wrt_ex)
     Wmean_wrt_wos = np.mean(W_wrt_wos)
     W_ex_by_setup.append(Wmean_wrt_ex)
     W_wos_by_setup.append(Wmean_wrt_wos)
+    Wmax_ex_by_setup.append(Wmax_wrt_ex)
+    Wmax_wos_by_setup.append(Wmax_wos_by_setup)
     setups.append(setup)
     #print("Setup:", setup)
     #print("Wass dist:", Wmean_wrt_ex)
@@ -175,6 +181,8 @@ np.savez(
     avg_runtimes_ansamp=np.array(avg_runtimes), #TODO this is empty
     W_ex_by_setup=np.array(W_ex_by_setup),
     W_wos_by_setup=np.array(W_wos_by_setup),
+    Wmax_wos_by_setup=np.array(Wmax_wos_by_setup),
+    Wmax_ex_by_setup=np.array(Wmax_ex_by_setup),
     setups=np.array(setups),
     WOS_ref_sol = WOS_ref_sol
 )
