@@ -1,38 +1,78 @@
 import numpy as np
+from scipy.stats import wasserstein_distance
 from problem_setup.wos.likelihood_model import WOSHD as ModelExact
-from scipy.stats import wasserstein_distance   # 1D Wasserstein
+from problem_setup.wos.problem_parameters import SamplerConfig as sc
+import problem_setup.wos.likelihood_model as lm
+import matplotlib.pyplot as plt
 
-# --- Configuration ---
-# n_plot = 500
-# theta = np.linspace(0, 2*np.pi, n_plot)
-# theta_eval = theta[None, :, None]
-
-# --- Load posterior samples ---
+# -----------------------------
+# Load posterior samples
+# -----------------------------
 with np.load("data/post_samp_ref.npz") as data:
-    sampA = data["post_samp"]
+    samp_ref = data["post_samp"]   # reference posterior
 
-with np.load("data/post_samp.npz") as data:
-    sampB = data["post_samp"]
+# with np.load("data/post_samp.npz") as data:
+#     samp_approx = data["post_samp"]  # approximate posterior
 
-NA, sA = sampA.shape
-NB, sB = sampB.shape
+Nref, s = samp_ref.shape
+# Napp, s2 = samp_approx.shape
+# assert s == s2, "Parameter dimensions must match"
 
-assert sA == sB, "Both methods must use same parameter dimension"
+# -----------------------------
+# Prior sampling
+# -----------------------------
+prior_mean = np.zeros(s)
+prior_cov  = sc.prior_marg_var * np.eye(s)
 
-# --- Reconstruct functions ---
-#hA = ModelExact.param_to_coeff(sampA, theta_eval).squeeze(-1)   # (NA, n_plot)
-#hB = ModelExact.param_to_coeff(sampB, theta_eval).squeeze(-1)   # (NB, n_plot)
+Nprior = 10000   # IMPORTANT: match sample size
+prior_samples = np.random.multivariate_normal(
+    prior_mean, prior_cov, size=Nprior
+)
 
-# --- Compute Wasserstein per angle ---
-W = np.zeros(sA)
-for i in range(sA): 
-    W[i] = wasserstein_distance(sampA[:, i], sampB[:, i])
+# -----------------------------
+# Wasserstein: posterior vs posterior
+# -----------------------------
+# W_post = np.zeros(s)
+# for i in range(s):
+#     W_post[i] = wasserstein_distance(
+#         samp_ref[:, i],
+#         samp_approx[:, i]
+#     )
 
-# --- Aggregate to a scalar metric ---
-# a) mean Wasserstein
-W_mean = np.mean(W)
+# W_post_mean = np.mean(W_post)
+# W_post_max  = np.max(W_post)
 
-W_max = np.max(W)
+# -----------------------------
+# Wasserstein: prior vs posterior
+# -----------------------------
+W_prior = np.zeros(s)
+for i in range(s):
+    W_prior[i] = wasserstein_distance(
+        samp_ref[:, i],
+        prior_samples[:, i]
+    )
 
-print("Mean Wasserstein distance over theta    :", W_mean)
-print("Maximum distance over angles            :", W_max)
+
+W_prior_avg = np.average(W_prior, weights=1/np.arange(1,len(W_prior)+1)**lm.WOSHD.q)
+W_prior_mean = np.mean(W_prior)
+W_prior_max  = np.max(W_prior)
+
+# -----------------------------
+# Report
+# -----------------------------
+print("=== Wasserstein distances (1D marginals) ===")
+print()
+# print("Posterior vs Posterior approximation:")
+# print(f"  Mean Wasserstein : {W_post_mean:.3e}")
+# print(f"  Max  Wasserstein : {W_post_max:.3e}")
+print()
+print("Prior vs Reference Posterior:")
+print(f"  Average weighted Wasserstein : {W_prior_avg:.1e}")
+print(f"  Mean Wasserstein : {W_prior_mean:.1e}")
+print(f"  Max  Wasserstein : {W_prior_max:.1e}")
+# print()
+# print("Relative error (mean):")
+# print(f"  W(post, approx) / W(prior, post) = {W_post_mean / W_prior_mean:.3f}")
+
+plt.plot(W_prior, marker='x')
+plt.show()
