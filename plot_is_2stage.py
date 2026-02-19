@@ -24,6 +24,7 @@ RESULTS_FOLDERS = [
 CI_Z = 1.96   # 95% CI
 MARKERS = ["o", "s", "D", "^", "v", "P", "X"]
 PLOT_SINGLE_DIM = 64
+PLOT_FIXED_BUDGET = 10.0
 
 def optimal_percent_with_ci(results_dict, budgets):
     mean_opt, ci_low, ci_high = [], [], []
@@ -40,7 +41,7 @@ def optimal_percent_with_ci(results_dict, budgets):
 
 # Metric definitions
 METRICS = [
-    ("Mean", "W_ex_by_setup", "W_wos_by_setup", "init_Wmean_ex"),
+    #("Mean", "W_ex_by_setup", "W_wos_by_setup", "init_Wmean_ex"),
     #("Max", "Wmax_ex_by_setup", "Wmax_wos_by_setup", "init_Wmax_ex"),
     ("Weighted", "Ww_ex_by_setup", "Ww_wos_by_setup", "init_Ww_ex")
 ]
@@ -57,6 +58,7 @@ for m_label, ex_key, wos_key, init_key in METRICS:
     fig_wos, ax_wos = plt.subplots(figsize=(7, 5))
     fig_err, ax_err = plt.subplots(figsize=(7, 5))
     fig_err_norm, ax_err_norm = plt.subplots(figsize=(7, 5))
+    fig_dim, ax_dim = plt.subplots(figsize=(7, 5))
 
     print(f"\n--- Processing Metric: {m_label} ---")
     
@@ -81,6 +83,7 @@ for m_label, ex_key, wos_key, init_key in METRICS:
         W_wos = data[wos_key]
         setups = data["setups"]
         init_err = data.get(init_key, 1.0)
+        print(init_err)
 
         # Load problem dimension
         spec = importlib.util.spec_from_file_location("problem_parameters", os.path.join(RESULTS_FOLDER, "problem_parameters.py"))
@@ -152,6 +155,23 @@ for m_label, ex_key, wos_key, init_key in METRICS:
             ax.set_xscale("log"); ax.set_xlabel("Total Budget"); ax.set_ylabel(ylab)
             ax.set_title(title); ax.grid(True, linestyle="--"); ax.legend()
 
+        # Error vs Dimension plot logic
+        dims_to_plot = sorted(summary_data[m_label].keys())
+        d_vals, e_best, e_fine = [], [], []
+        for d in dims_to_plot:
+            if PLOT_FIXED_BUDGET in summary_data[m_label][d]:
+                d_vals.append(d)
+                e_best.append(summary_data[m_label][d][PLOT_FIXED_BUDGET]['ex']['best'])
+                e_fine.append(summary_data[m_label][d][PLOT_FIXED_BUDGET]['ex']['fine'])
+        
+        if d_vals:
+            ax_dim.plot(d_vals, e_best, "o-", label="Optimal allocation")
+            ax_dim.plot(d_vals, e_fine, "s--", label="fine chain only")
+            ax_dim.set_xscale("log"); ax_dim.set_yscale("log")
+            ax_dim.set_xlabel("Dimension d"); ax_dim.set_ylabel("Error")
+            ax_dim.set_title(f"Error vs Dimension (Budget={PLOT_FIXED_BUDGET}, {m_label})")
+            ax_dim.grid(True, linestyle="--"); ax_dim.legend()
+
         for rf in RESULTS_FOLDERS:
             # Check if current folder was actually processed for this specific metric
             if os.path.exists(os.path.join(rf, "smc_results.npz")):
@@ -161,8 +181,9 @@ for m_label, ex_key, wos_key, init_key in METRICS:
                     fig_wos.savefig(os.path.join(rf, f"opt_alloc_wos_{m_label}.png"), dpi=300)
                     fig_err.savefig(os.path.join(rf, f"error_vs_budget_{m_label}_d{PLOT_SINGLE_DIM}.png"), dpi=300)
                     fig_err_norm.savefig(os.path.join(rf, f"error_vs_budget_{m_label}_norm_d{PLOT_SINGLE_DIM}.png"), dpi=300)
+                    fig_dim.savefig(os.path.join(rf, f"error_vs_dim_{m_label}_budget{PLOT_FIXED_BUDGET}.png"), dpi=300)
     else:
-        plt.close(fig_ex); plt.close(fig_wos); plt.close(fig_err); plt.close(fig_err_norm)
+        plt.close(fig_ex); plt.close(fig_wos); plt.close(fig_err); plt.close(fig_err_norm); plt.close(fig_dim)
 
 # -----------------------------
 # GENERATE AND EXPORT SUMMARY
