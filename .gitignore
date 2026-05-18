@@ -157,6 +157,7 @@ cython_debug/
 data/
 test_old/
 plots/
+presentation_plots/
 problem_setup/rayleigh_problem_dsmc/ground_truth/
 
 find_results.py
