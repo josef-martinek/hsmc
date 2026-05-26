@@ -1,0 +1,2 @@
+_target_: ${problem.path}.likelihood_model.IPModelInexactFixHD
+nsamp: 128

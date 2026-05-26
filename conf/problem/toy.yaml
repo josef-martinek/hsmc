@@ -1,0 +1,15 @@
+name: "toy"
+path: "problem_setup.toy_problem"
+model_exact_class: "MatVecModel"
+param_dim: 24
+data_noise_var: 0.1
+prior_marg_var: 1.0
+n_particles: 100
+len_chain: 10
+ESS_rmin: 0.7
+ar_tol: 0.35
+Nmin: 100
+fine_over_coarse_nsamp: 10
+
+# Flat list representing the 24 parameters
+ground_truth_par: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]

@@ -1,0 +1,5 @@
+defaults:
+  - problem: wos
+  - likelihood: exact
+  - mcmc: rw_reg_cal
+  - sampler: adaptive_tempering

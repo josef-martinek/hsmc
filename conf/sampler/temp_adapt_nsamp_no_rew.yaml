@@ -1,0 +1,5 @@
+_target_: core.samplers.TempAdaptNsampNoRew
+wastefree: False
+ESSrmin: ${problem.ESS_rmin}
+Nmin: ${problem.Nmin}
+ar_tol: ${problem.ar_tol}
