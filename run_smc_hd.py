@@ -1,93 +1,108 @@
+import importlib
 import numpy as np
-import scipy.stats as stats
-from particles import distributions as dists
-from particles import smc_samplers as ssp
-from core.samplers import TempAdaptNsampNoRew
-from particles.core import SMC
-import core.mcmc as MCMC
-# from problem_setup.toy_problem.problem_parameters import SamplerConfig as sc
-# from problem_setup.toy_problem.likelihood_model import IPModelExactHD, IPModelInexactFixHD, IPModelInexactAdaptHD
-# from problem_setup.toy_problem.likelihood_model import MatVecModel as ModelExact
-# from problem_setup.fokker_planck.problem_parameters import SamplerConfig as sc
-# from problem_setup.fokker_planck.likelihood_model import IPModelExactHD, IPModelInexactFixHD, IPModelInexactAdaptHD
-# from problem_setup.fokker_planck.likelihood_model import FPModelHD as ModelExact
-from problem_setup.wos.problem_parameters import SamplerConfig as sc
-from problem_setup.wos.likelihood_model import IPModelExactHD, IPModelInexactFixHD, IPModelInexactAdaptHD
-from problem_setup.wos.likelihood_model import WOSHD as ModelExact
-import logging
-from matplotlib import pyplot as plt
-import seaborn as sb
-import pandas as pd
 import time
+import os
+from hydra import initialize, compose
+from hydra.utils import instantiate
+from omegaconf import DictConfig, OmegaConf
+from particles import distributions as dists
+from particles.smc_samplers import AdaptiveMCMCSequence
+from particles.core import SMC
 
-np.random.seed(1111)
-thinning_step = 4
 resample_move_end = True
-if not resample_move_end:
-    logging.error("Posterior pair plot requires unweighted samples")
 
-if __name__ == "__main__":
-    if len(sc.ground_truth_par) == 1:
-        logging.error("This script is only for multi dimensional inference.")
+def run_simulation(problem="wos", likelihood="exact", mcmc="rw_reg_cal", sampler="adaptive_tempering", ground_truth_par=None):
+    """
+    Run a single SMC tempering simulation using modular Hydra configurations.
+    
+    Parameters:
+    -----------
+    problem : str
+        The problem config profile, e.g. "wos" or "toy".
+    likelihood : str
+        The likelihood profile, e.g. "exact", "inexact_fix", or "inexact_adapt".
+    mcmc : str
+        The MCMC step mutation profile, e.g. "rw_reg_cal", "rw_unc", or "noisy_metropolis_cal".
+    sampler : str
+        The SMC sampler profile, e.g. "adaptive_tempering" or "temp_adapt_nsamp_no_rew".
+    ground_truth_par : array-like, optional
+        A custom parameter array to override the default ground truth loaded from YAML.
+    """
+    # ---------------------------------------------------------
+    # 0. COMPOSE CONFIGURATION (Programmatic Compose API)
+    # ---------------------------------------------------------
+    with initialize(version_base=None, config_path="conf"):
+        cfg = compose(config_name="config", overrides=[
+            f"problem={problem}",
+            f"likelihood={likelihood}",
+            f"mcmc={mcmc}",
+            f"sampler={sampler}"
+        ])
 
-    param_dim = sc.param_dim
+    # ---------------------------------------------------------
+    # 1. DYNAMIC PROBLEM & LIKELIHOOD SETUP
+    # ---------------------------------------------------------
+    prob_lik = importlib.import_module(f"{cfg.problem.path}.likelihood_model")
+    ModelExact = getattr(prob_lik, cfg.problem.model_exact_class)
+
+    # Load default ground truth from YAML, or override with runtime argument
+    if ground_truth_par is None:
+        ground_truth_par = np.array(cfg.problem.ground_truth_par)
+    else:
+        ground_truth_par = np.asarray(ground_truth_par)
+
+    param_dim = cfg.problem.param_dim
     prior = dists.StructDist({'param': dists.MvNormal(loc=np.zeros(param_dim),
-                                                      cov=sc.prior_marg_var*np.eye(param_dim))})
+                                                      cov=cfg.problem.prior_marg_var*np.eye(param_dim))})
 
-    # Generate synthetic data using ground truth
-    true_sol = ModelExact.exact_sol(sc.ground_truth_par).reshape(-1,1)
+    # Generate synthetic data using ground truth exact solver
+    true_sol = ModelExact.exact_sol(ground_truth_par).reshape(-1, 1)
     rng_data = np.random.default_rng(seed=81)
-    observed_data = true_sol + rng_data.normal(loc=0., scale=np.sqrt(sc.data_noise_var), size=true_sol.shape)
-    print("Observed data generated.")
+    observed_data = true_sol + rng_data.normal(loc=0., scale=np.sqrt(cfg.problem.data_noise_var), size=true_sol.shape)
+    print(f"Observed data generated for problem '{problem}' using exact solver.")
 
-    model = IPModelExactHD(prior=prior, 
-                               data_noise_cov=sc.data_noise_var, 
-                               data=observed_data)
-    # model = IPModelInexactFixHD(prior=prior, 
-    #                                   data_noise_cov=sc.data_noise_var, 
-    #                                   data=observed_data,
-    #                                   nsamp=128)
-    # model = IPModelInexactAdaptHD(prior=prior,
-    #                             data_noise_cov=sc.data_noise_var,
-    #                             data=observed_data)
+    # Dynamic instantiation of the likelihood model wrapper
+    model = instantiate(
+        cfg.likelihood, 
+        prior=prior, 
+        data_noise_cov=cfg.problem.data_noise_var, 
+        data=observed_data
+    )
 
-    mcmc = MCMC.RWRegCal()
-    move = ssp.AdaptiveMCMCSequence(mcmc=mcmc, adaptive=False, len_chain=sc.len_chain)
-    #fk_tempering = ssp.Tempering(model=model, wastefree=False, exponents=[1.], move=move)
-    fk_tempering = ssp.AdaptiveTempering(model=model, wastefree=False, ESSrmin=sc.ESS_rmin, move=move)
-    #fk_tempering = ssp.AdaptiveTempering(model=model, wastefree=False, len_chain=sc.len_chain, ESSrmin=sc.ESS_rmin)
-    #fk_tempering = TempAdaptNsampNoRew(Nmin=sc.Nmin, ar_tol=sc.ar_tol, model=model, wastefree=False, ESSrmin=sc.ESS_rmin, move=move)
-    #fk_tempering = TempAdaptNsampNoRew(Nmin=sc.Nmin, ar_tol=sc.ar_tol, model=model, wastefree=False, len_chain=sc.len_chain, ESSrmin=sc.ESS_rmin)
+    # ---------------------------------------------------------
+    # 2. MCMC & SAMPLER INSTANTIATION
+    # ---------------------------------------------------------
+    mcmc_obj = instantiate(cfg.mcmc)
+    move = AdaptiveMCMCSequence(mcmc=mcmc_obj, adaptive=False, len_chain=cfg.problem.len_chain)
+    fk_tempering = instantiate(cfg.sampler, model=model, move=move, len_chain=cfg.problem.len_chain)
 
-    my_temp_alg = SMC(fk=fk_tempering, N=sc.n_particles, ESSrmin=1., 
-                                verbose=True)
+    # ---------------------------------------------------------
+    # 3. RUN SIMULATION
+    # ---------------------------------------------------------
+    my_temp_alg = SMC(fk=fk_tempering, N=cfg.problem.n_particles, ESSrmin=1., verbose=True)
+    
     start_time = time.time()
     my_temp_alg.run()
     if resample_move_end:
         my_temp_alg.setup_auxiliary_weights()
         my_temp_alg.resample_move()
     end_time = time.time()
-    print(f"Runtime: {end_time-start_time}")
+    
+    print(f"Runtime: {end_time-start_time:.4f} seconds")
 
     post_samp = my_temp_alg.X.theta['param']
     post_mean = np.mean(post_samp, axis=0)
-    #print("Posterior mean:", post_mean)
+    print("Posterior mean:", post_mean)
+    
+    # Save output data
+    os.makedirs("data", exist_ok=True)
     np.savez("data/post_mean_ref.npz", post_mean=post_mean)
-    np.savez("data/post_samp_ref.npz", post_samp=my_temp_alg.X.theta['param'])
-    post_samp_thinned = post_samp[:,::thinning_step]
+    np.savez("data/post_samp_ref.npz", post_samp=post_samp)
+    
+    # Export execution setup configuration as reference
+    with open("data/setup.yaml", "w") as f:
+        f.write(OmegaConf.to_yaml(cfg))
 
-    # # Create a DataFrame for seaborn
-    # df = pd.DataFrame(post_samp_thinned, columns=[f'Param {thinning_step * i+1}' for i in range(post_samp_thinned.shape[1])])
-
-    # # Create pair plot
-    # g = sb.pairplot(df, diag_kind='kde', corner=False,
-    #                 plot_kws={'alpha': 0.5, 's': 15},  # small transparent points
-    #                 height=2.5)
-
-    # # Optionally, overlay contour density estimates
-    # g.map_upper(sb.kdeplot, levels=5, color="C1")
-    # g.map_lower(sb.kdeplot, cmap="Blues_d", levels=5)
-
-    # # Adjust layout and show
-    # plt.tight_layout()
-    # plt.show()
+if __name__ == "__main__":
+    # Programmatic invocation matching original default profile out-of-the-box
+    run_simulation(problem="wos", likelihood="exact", mcmc="rw_reg_cal", sampler="adaptive_tempering")

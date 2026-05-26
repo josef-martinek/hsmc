@@ -2,12 +2,9 @@ import numpy as np
 from particles import smc_samplers as ssp
 from problem_setup.likelihood_base import IPModel1D, IPModelHD
 import logging
-from problem_setup.toy_problem.problem_parameters import SamplerConfig as sc
-
-
 class MatVecModel:
-    data_dim = sc.data_dim
-    parameter_dim = len(sc.ground_truth_par)
+    data_dim = 10
+    parameter_dim = 24
 
     #aux = np.ones((data_dim, parameter_dim))
 
