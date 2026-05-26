@@ -13,3 +13,5 @@ dependencies:
       - seaborn==0.13.2
       - ray==2.48.0
       - particles @ git+https://github.com/nchopin/particles.git@8f2c4bfa85cc7a287c0fd36b13710bfe4bd41856
+      - pytest==8.2.1
+      - hydra-core==1.3.2
