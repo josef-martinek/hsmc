@@ -14,17 +14,17 @@ from collections import defaultdict
 # -----------------------------
 
 RESULTS_FOLDERS = [
-    "data/run_20260130-104042_",
-    "data/run_20260130-104101_",
-    "data/run_20260130-104152_",
-    "data/run_20260130-104218_",
-    "data/run_20260130-104245_",
-    "data/run_20260130-104342_"
+    "data/run_20260130-103339_",
+    "data/run_20260130-103416_",
+    "data/run_20260130-103448_",
+    "data/run_20260130-103520_",
+    "data/run_20260130-103719_",
+    "data/run_20260130-103745_"
 ]
 
 CI_Z = 1.96   # 95% CI
 MARKERS = ["o", "s", "D", "^", "v", "P", "X"]
-PLOT_SINGLE_DIM = 64
+PLOT_SINGLE_DIM = 128
 PLOT_FIXED_BUDGET = 10.0
 
 def optimal_percent_with_ci(results_dict, budgets):
