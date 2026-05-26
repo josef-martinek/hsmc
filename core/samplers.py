@@ -2,7 +2,10 @@ from particles.smc_samplers import AdaptiveTempering, next_annealing_epn
 import numpy as np
 from particles.smc_samplers import ThetaParticles
 
-class TempAdaptNsampRew(AdaptiveTempering):
+class TempAdaptNsampNoRew(AdaptiveTempering):
+    """
+    Adaptive Tempering SMC sampler with adaptive solver sample size (no reweighting).
+    """
 
     def __init__(self, Nmin, ar_tol, model=None, wastefree=False, len_chain=10, move=None, ESSrmin=0.5, max_iter=1000):
         super().__init__(model, wastefree, len_chain, move, ESSrmin, max_iter)
@@ -41,15 +44,13 @@ class TempAdaptNsampRew(AdaptiveTempering):
     def logG_tempering(self, x, delta):
         dl = delta * x.llik
         x.lpost += dl
-        #self.update_path_sampling_est(x, delta)
 
-        dl2 = 0
         if self.solver_nsamp[-1] != self.solver_nsamp[-2]:
             llik_new = self.model.loglik(x.theta, self.solver_nsamp[-1])
             dl2 = x.shared['exponents'][-1] * (llik_new - x.llik)
             x.lpost += dl2
             x.llik = llik_new
-        return dl + dl2
+        return dl
     
     def current_target(self, epn):
         def func(x):
@@ -61,28 +62,3 @@ class TempAdaptNsampRew(AdaptiveTempering):
                 x.lpost = x.lprior.copy()
 
         return func
-    
-
-class TempAdaptNsampNoRew(TempAdaptNsampRew):
-
-    def logG_tempering(self, x, delta):
-        dl = delta * x.llik
-        x.lpost += dl
-        #self.update_path_sampling_est(x, delta)
-
-        dl2 = 0
-        if self.solver_nsamp[-1] != self.solver_nsamp[-2]:
-            llik_new = self.model.loglik(x.theta, self.solver_nsamp[-1])
-            dl2 = x.shared['exponents'][-1] * (llik_new - x.llik)
-            x.lpost += dl2
-            x.llik = llik_new
-        return dl
-    
-
-class TempAdaptNsampNoIS(TempAdaptNsampRew):
-
-    def logG_tempering(self, x, delta):
-        dl = delta * x.llik
-        x.lpost += dl
-        #self.update_path_sampling_est(x, delta)
-        return dl
