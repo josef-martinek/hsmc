@@ -1,0 +1,10 @@
+_target_: core.mcmc.TwoStageMCMC
+len_chain1: 3
+len_chain2: 3
+fine_over_coarse: 10
+mcmc1:
+  _target_: core.mcmc.RWUnc
+  scale_factor: 0.2
+mcmc2:
+  _target_: core.mcmc.RWUnc
+  scale_factor: 0.2
