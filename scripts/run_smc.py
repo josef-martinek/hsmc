@@ -71,7 +71,7 @@ def run_simulation(problem="wos", likelihood="exact", mcmc="rw_reg_cal", sampler
         if param_dim == 1:
             prior = dists.StructDist({'param': dists.Uniform(a=a, b=b)})
         else:
-            prior = dists.StructDist({'param': dists.IndepProd(dists.Uniform(a=a, b=b), size=param_dim)})
+            prior = dists.StructDist({'param': dists.IndepProd(*(dists.Uniform(a=a, b=b) for _ in range(param_dim)))})
     else:
         if param_dim == 1:
             prior = dists.StructDist({'param': dists.Normal(loc=0., 
@@ -160,32 +160,21 @@ def run_simulation(problem="wos", likelihood="exact", mcmc="rw_reg_cal", sampler
         plt.show()
 
 if __name__ == "__main__":
-    # Verified working combinations from the compatibility matrix
-    working_combinations = [
-        # Sampler, MCMC, Likelihood
-        ("adaptive_tempering", "rw_reg_cal", "exact"),
-        ("adaptive_tempering", "rw_reg_cal", "inexact_fix"),
-        ("adaptive_tempering", "rw_unc", "exact"),
-        ("adaptive_tempering", "rw_unc", "inexact_fix"),
-        ("adaptive_tempering", "noisy_metropolis_cal", "exact"),
-        ("adaptive_tempering", "noisy_metropolis_cal", "inexact_fix"),
-        ("temp_adapt_nsamp_no_rew", "rw_reg_cal", "inexact_adapt"),
-        ("temp_adapt_nsamp_no_rew", "rw_unc", "inexact_adapt"),
-        ("temp_adapt_nsamp_no_rew", "noisy_metropolis_cal", "inexact_adapt"),
-    ]
+    # ---------------------------------------------------------
+    # CONFIGURATION INTERFACE (Specify your run setup here)
+    # ---------------------------------------------------------
+    problem_name = "compact"        # Options: "wos", "toy", "compact"
+    sampler = "adaptive_tempering"  # Options: "adaptive_tempering", "temp_adapt_nsamp_no_rew", "tempering"
+    mcmc = "rw_reg_cal"             # Options: "rw_reg_cal", "rw_unc", "noisy_metropolis_cal"
+    likelihood = "exact"            # Options: "exact", "inexact_fix", "inexact_adapt"
+
+    print("==================================================")
+    print("Running SMC Simulation")
+    print(f"  Problem:    {problem_name}")
+    print(f"  Sampler:    {sampler}")
+    print(f"  MCMC Move:  {mcmc}")
+    print(f"  Likelihood: {likelihood}")
+    print("==================================================")
     
-    print("==================================================")
-    print("Running Verified SMC & MCMC Configurations")
-    print("==================================================")
-    for sampler, mcmc, likelihood in working_combinations:
-        print(f"\n--- Running: Sampler={sampler}, MCMC={mcmc}, Likelihood={likelihood} ---")
-        run_simulation(problem="wos", likelihood=likelihood, mcmc=mcmc, sampler=sampler)
-        
-    print("\n==================================================")
-    print("Running Fixed Tempering Configurations")
-    print("==================================================")
-    print("\n--- Running: Fixed Tempering (default exponents) ---")
-    run_simulation(problem="wos", likelihood="exact", mcmc="rw_reg_cal", sampler="tempering")
-    
-    print("\n--- Running: Fixed Tempering (custom exponents) ---")
-    run_simulation(problem="wos", likelihood="exact", mcmc="rw_reg_cal", sampler="tempering", exponents=[0.01, 0.05, 0.2, 0.5, 1.0])
+    # Run the single selected configuration
+    run_simulation(problem=problem_name, likelihood=likelihood, mcmc=mcmc, sampler=sampler)
