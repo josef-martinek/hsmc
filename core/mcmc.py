@@ -16,6 +16,7 @@ class RWRegCal(ArrayRandomWalk):
         arr = view_2d_array(x.theta)
         N, d = arr.shape
         m, cov = rs.wmean_and_cov(W, arr)
+        cov = np.atleast_2d(cov)
         cov_reg = cov + 1e-8 * np.eye(N=cov.shape[0])
         scale = 2.38 / np.sqrt(d)
         if self.eye_prop:
