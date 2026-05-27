@@ -65,12 +65,20 @@ def run_simulation(problem="wos", likelihood="exact", mcmc="rw_reg_cal", sampler
         ground_truth_par = np.asarray(ground_truth_par)
 
     param_dim = cfg.problem.param_dim
-    if param_dim == 1:
-        prior = dists.StructDist({'param': dists.Normal(loc=0., 
-                                                        scale=cfg.problem.prior_marg_var)})
+    if hasattr(cfg.problem, 'prior_type') and cfg.problem.prior_type == 'uniform':
+        a = cfg.problem.prior_a
+        b = cfg.problem.prior_b
+        if param_dim == 1:
+            prior = dists.StructDist({'param': dists.Uniform(a=a, b=b)})
+        else:
+            prior = dists.StructDist({'param': dists.IndepProd(dists.Uniform(a=a, b=b), size=param_dim)})
     else:
-        prior = dists.StructDist({'param': dists.MvNormal(loc=np.zeros(param_dim),
-                                                          cov=cfg.problem.prior_marg_var*np.eye(param_dim))})
+        if param_dim == 1:
+            prior = dists.StructDist({'param': dists.Normal(loc=0., 
+                                                            scale=cfg.problem.prior_marg_var)})
+        else:
+            prior = dists.StructDist({'param': dists.MvNormal(loc=np.zeros(param_dim),
+                                                              cov=cfg.problem.prior_marg_var*np.eye(param_dim))})
 
     # Generate synthetic data using ground truth exact solver
     true_sol = ModelExact.exact_sol(ground_truth_par).reshape(-1, 1)
