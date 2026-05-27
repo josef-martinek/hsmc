@@ -30,15 +30,16 @@ class DummyRunner(ExperimentRunner):
 
 
 def test_experiment_manager():
+    from omegaconf import OmegaConf
     # Construct a dummy Hydra-like configuration dict
-    cfg = {
+    cfg = OmegaConf.create({
         "num_cpus": 1,
         "results_base_dir": "data",
         "problem": {
             "n_particles": 10,
             "param_dim": 2
         }
-    }
+    })
     
     runner = DummyRunner()
     manager = ExperimentManager(runner, cfg)

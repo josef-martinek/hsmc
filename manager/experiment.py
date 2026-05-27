@@ -45,7 +45,7 @@ class ExperimentManager:
 
     def run(self):
         # 1. Housekeeping and Ray Init
-        num_cpus = self.cfg.get("num_cpus", None)
+        num_cpus = self.cfg.num_cpus
         if num_cpus is not None and num_cpus > 0:
             print(f"Initializing Ray with num_cpus={num_cpus}...")
             ray.init(ignore_reinit_error=True, num_cpus=num_cpus)
@@ -54,7 +54,7 @@ class ExperimentManager:
             ray.init(ignore_reinit_error=True)
 
         # 2. Output Directory Setup
-        base_dir = self.cfg.get("results_base_dir", "data")
+        base_dir = self.cfg.results_base_dir
         output_dir = info.create_results_folder(base_dir=base_dir)
         print(f"Created results folder: {output_dir}")
 
@@ -69,9 +69,9 @@ class ExperimentManager:
         print(f"Generated {num_tasks} tasks.")
 
         # 5. Dual-Regime Storage Check
-        problem_cfg = self.cfg.get("problem", {})
-        num_particles = problem_cfg.get("n_particles", 100)
-        param_dim = problem_cfg.get("param_dim", 1)
+        problem_cfg = self.cfg.problem
+        num_particles = problem_cfg.n_particles
+        param_dim = problem_cfg.param_dim
         total_floats = num_tasks * num_particles * param_dim
 
         if total_floats <= self.threshold:
