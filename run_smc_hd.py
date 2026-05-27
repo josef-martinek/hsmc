@@ -52,8 +52,12 @@ def run_simulation(problem="wos", likelihood="exact", mcmc="rw_reg_cal", sampler
         ground_truth_par = np.asarray(ground_truth_par)
 
     param_dim = cfg.problem.param_dim
-    prior = dists.StructDist({'param': dists.MvNormal(loc=np.zeros(param_dim),
-                                                      cov=cfg.problem.prior_marg_var*np.eye(param_dim))})
+    if param_dim == 1:
+        prior = dists.StructDist({'param': dists.Normal(loc=0., 
+                                                        scale=cfg.problem.prior_marg_var)})
+    else:
+        prior = dists.StructDist({'param': dists.MvNormal(loc=np.zeros(param_dim),
+                                                          cov=cfg.problem.prior_marg_var*np.eye(param_dim))})
 
     # Generate synthetic data using ground truth exact solver
     true_sol = ModelExact.exact_sol(ground_truth_par).reshape(-1, 1)
@@ -102,6 +106,37 @@ def run_simulation(problem="wos", likelihood="exact", mcmc="rw_reg_cal", sampler
     # Export execution setup configuration as reference
     with open("data/experiment/setup.yaml", "w") as f:
         f.write(OmegaConf.to_yaml(cfg))
+
+    # Plot results if 1D problem
+    if param_dim == 1:
+        import scipy.stats as stats
+        from matplotlib import pyplot as plt
+        import seaborn as sb
+
+        # Define prior distribution
+        prior_dist = stats.norm(loc=0, scale=cfg.problem.prior_marg_var)
+
+        # Plot results
+        fig, ax = plt.subplots(figsize=(6, 5))
+
+        # Plot histogram of sampled parameters
+        if resample_move_end:
+            sb.histplot(x=post_samp.flatten(), stat='density', label='SMC Samples', ax=ax)
+        else:
+            sb.histplot(x=post_samp.flatten(), weights=my_temp_alg.W, stat='density', label='SMC Samples', ax=ax)
+
+        # Plot prior distribution
+        x_vals = np.linspace(-3 * cfg.problem.prior_marg_var, 3 * cfg.problem.prior_marg_var, 1000)
+        ax.plot(x_vals, prior_dist.pdf(x_vals), label='Prior', linestyle='dashed', color='black')
+
+        ax.set_xlabel('param')
+        ax.legend()
+        
+        # Save the plot
+        os.makedirs("plots", exist_ok=True)
+        plt.savefig("plots/posterior_distribution.png", dpi=300, bbox_inches='tight')
+        print("Plot saved to plots/posterior_distribution.png")
+        plt.show()
 
 if __name__ == "__main__":
     # Programmatic invocation matching original default profile out-of-the-box

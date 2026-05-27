@@ -9,4 +9,5 @@ len_chain: 10
 ESS_rmin: 0.7
 ar_tol: 0.35
 Nmin: 100
+likelihood_suffix: ""
 ground_truth_par: [-0.69314718]

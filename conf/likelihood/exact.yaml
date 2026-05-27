@@ -1,1 +1,1 @@
-_target_: ${problem.path}.likelihood_model.IPModelExactHD
+_target_: ${problem.path}.likelihood_model.IPModelExact${problem.likelihood_suffix}

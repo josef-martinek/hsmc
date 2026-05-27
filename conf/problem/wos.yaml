@@ -11,5 +11,7 @@ ar_tol: 0.2
 Nmin: 32
 fine_over_coarse_nsamp: 32
 
+likelihood_suffix: "HD"
+
 # Pre-computed ground truth (normal distribution scale=4.0, seed=5)
 ground_truth_par: [-3.2077257, -5.29743598]

@@ -11,5 +11,7 @@ ar_tol: 0.35
 Nmin: 100
 fine_over_coarse_nsamp: 10
 
+likelihood_suffix: "HD"
+
 # Flat list representing the 24 parameters
 ground_truth_par: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
