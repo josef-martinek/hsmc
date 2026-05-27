@@ -95,12 +95,12 @@ def run_simulation(problem="wos", likelihood="exact", mcmc="rw_reg_cal", sampler
     print("Posterior mean:", post_mean)
     
     # Save output data
-    os.makedirs("data", exist_ok=True)
-    np.savez("data/post_mean_ref.npz", post_mean=post_mean)
-    np.savez("data/post_samp_ref.npz", post_samp=post_samp)
+    os.makedirs("data/experiment", exist_ok=True)
+    np.savez("data/experiment/post_mean_ref.npz", post_mean=post_mean)
+    np.savez("data/experiment/post_samp_ref.npz", post_samp=post_samp)
     
     # Export execution setup configuration as reference
-    with open("data/setup.yaml", "w") as f:
+    with open("data/experiment/setup.yaml", "w") as f:
         f.write(OmegaConf.to_yaml(cfg))
 
 if __name__ == "__main__":
