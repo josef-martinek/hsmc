@@ -152,12 +152,32 @@ def run_simulation(problem="wos", likelihood="exact", mcmc="rw_reg_cal", sampler
         plt.show()
 
 if __name__ == "__main__":
-    # Programmatic invocation matching original default profile out-of-the-box
-    print("--- Running default adaptive tempering simulation ---")
-    run_simulation(problem="wos", likelihood="exact", mcmc="rw_reg_cal", sampler="adaptive_tempering")
+    # Verified working combinations from the compatibility matrix
+    working_combinations = [
+        # Sampler, MCMC, Likelihood
+        ("adaptive_tempering", "rw_reg_cal", "exact"),
+        ("adaptive_tempering", "rw_reg_cal", "inexact_fix"),
+        ("adaptive_tempering", "rw_unc", "exact"),
+        ("adaptive_tempering", "rw_unc", "inexact_fix"),
+        ("adaptive_tempering", "noisy_metropolis_cal", "exact"),
+        ("adaptive_tempering", "noisy_metropolis_cal", "inexact_fix"),
+        ("temp_adapt_nsamp_no_rew", "rw_reg_cal", "inexact_adapt"),
+        ("temp_adapt_nsamp_no_rew", "rw_unc", "inexact_adapt"),
+        ("temp_adapt_nsamp_no_rew", "noisy_metropolis_cal", "inexact_adapt"),
+    ]
     
-    print("\n--- Running fixed tempering simulation with default exponents ---")
+    print("==================================================")
+    print("Running Verified SMC & MCMC Configurations")
+    print("==================================================")
+    for sampler, mcmc, likelihood in working_combinations:
+        print(f"\n--- Running: Sampler={sampler}, MCMC={mcmc}, Likelihood={likelihood} ---")
+        run_simulation(problem="wos", likelihood=likelihood, mcmc=mcmc, sampler=sampler)
+        
+    print("\n==================================================")
+    print("Running Fixed Tempering Configurations")
+    print("==================================================")
+    print("\n--- Running: Fixed Tempering (default exponents) ---")
     run_simulation(problem="wos", likelihood="exact", mcmc="rw_reg_cal", sampler="tempering")
     
-    print("\n--- Running fixed tempering simulation with custom exponents ---")
+    print("\n--- Running: Fixed Tempering (custom exponents) ---")
     run_simulation(problem="wos", likelihood="exact", mcmc="rw_reg_cal", sampler="tempering", exponents=[0.01, 0.05, 0.2, 0.5, 1.0])

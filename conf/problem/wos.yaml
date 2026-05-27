@@ -4,8 +4,8 @@ model_exact_class: "WOSHD"
 param_dim: 2
 data_noise_var: 1.6
 prior_marg_var: 4.0
-n_particles: 100
-len_chain: 100
+n_particles: 20
+len_chain: 5
 ESS_rmin: 0.7
 ar_tol: 0.2
 Nmin: 32
