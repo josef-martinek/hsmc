@@ -1,7 +1,9 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import importlib
 import numpy as np
 import time
-import os
 from hydra import initialize, compose
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
@@ -31,7 +33,7 @@ def run_simulation(problem="wos", likelihood="exact", mcmc="rw_reg_cal", sampler
     # ---------------------------------------------------------
     # 0. COMPOSE CONFIGURATION (Programmatic Compose API)
     # ---------------------------------------------------------
-    with initialize(version_base=None, config_path="conf"):
+    with initialize(version_base=None, config_path="../conf"):
         cfg = compose(config_name="config", overrides=[
             f"problem={problem}",
             f"likelihood={likelihood}",
