@@ -1,18 +1,16 @@
 import numpy as np
 from scipy.stats import chi
+from problem_setup.likelihood_base import IPModel1D, IPModelHD
 
 class CompactModel:
-    exact_fw_operator = None
-    truncation_radius_R = None
+    # Statically defined dimensions & radius
+    m = 10
+    d = 5
+    truncation_radius_R = 1.0
 
-    @classmethod
-    def setup(cls, m, d, R, seed=42):
-        """
-        Set up the problem dimensions and operator.
-        """
-        np.random.seed(seed)
-        cls.exact_fw_operator = np.random.randn(m, d)
-        cls.truncation_radius_R = R
+    # Statically initialize the fixed random operator A with seed=42
+    _rng = np.random.default_rng(seed=42)
+    exact_fw_operator = _rng.normal(size=(m, d))
 
     @classmethod
     def state_variance(cls, params):
@@ -75,3 +73,134 @@ class CompactModel:
         e = directions * magnitudes[:, None]
         
         return u_exact + e
+
+
+class IPModelExact(IPModel1D):
+    def _evaluate_model(self, param):
+        # param shape: (N,) representing 1D parameter values
+        param_2d = param.reshape(-1, 1)
+        return CompactModel.exact_sol(param_2d).T
+
+    @property
+    def parallel_eval(self):
+        return True
+
+    @property
+    def nsamp(self):
+        raise AttributeError("nsamp not used in exact model.")
+
+    @nsamp.setter
+    def nsamp(self, value):
+        raise AttributeError("nsamp not used in exact model.")
+
+
+class IPModelInexactFix(IPModel1D):
+    def __init__(self, prior, data_noise_cov, data, nsamp):
+        super().__init__(prior, data_noise_cov, data)
+        self._nsamp = round(nsamp)
+
+    def _evaluate_model(self, param):
+        # param shape: (N,)
+        param_2d = param.reshape(-1, 1)
+        return CompactModel.inexact_sol(param_2d, self.nsamp).T
+
+    @property
+    def parallel_eval(self):
+        return True
+
+    @property
+    def nsamp(self):
+        return self._nsamp
+
+    @nsamp.setter
+    def nsamp(self, value):
+        raise AttributeError("nsamp is read only in model with fixed number of samples.")
+
+
+class IPModelInexactAdapt(IPModel1D):
+    def __init__(self, prior, data_noise_cov, data):
+        super().__init__(prior, data_noise_cov, data)
+        self._nsamp = None
+
+    def _evaluate_model(self, param):
+        # param shape: (N,)
+        param_2d = param.reshape(-1, 1)
+        return CompactModel.inexact_sol(param_2d, self.nsamp).T
+
+    @property
+    def parallel_eval(self):
+        return True
+
+    @property
+    def nsamp(self):
+        if self._nsamp is None:
+            raise AttributeError("nsamp not specified in model with adaptive number of samples")
+        return self._nsamp
+
+    @nsamp.setter
+    def nsamp(self, value):
+        self._nsamp = round(value)
+
+
+class IPModelExactHD(IPModelHD):
+    def _evaluate_model(self, param):
+        # param shape: (N, d)
+        return CompactModel.exact_sol(param).T
+
+    @property
+    def parallel_eval(self):
+        return True
+
+    @property
+    def nsamp(self):
+        raise AttributeError("nsamp not used in exact model.")
+
+    @nsamp.setter
+    def nsamp(self, value):
+        raise AttributeError("nsamp not used in exact model.")
+
+
+class IPModelInexactFixHD(IPModelHD):
+    def __init__(self, prior, data_noise_cov, data, nsamp):
+        super().__init__(prior, data_noise_cov, data)
+        self._nsamp = round(nsamp)
+
+    def _evaluate_model(self, param):
+        # param shape: (N, d)
+        return CompactModel.inexact_sol(param, self.nsamp).T
+
+    @property
+    def parallel_eval(self):
+        return True
+
+    @property
+    def nsamp(self):
+        return self._nsamp
+
+    @nsamp.setter
+    def nsamp(self, value):
+        raise AttributeError("nsamp is read only in model with fixed number of samples.")
+
+
+class IPModelInexactAdaptHD(IPModelHD):
+    def __init__(self, prior, data_noise_cov, data):
+        super().__init__(prior, data_noise_cov, data)
+        self._nsamp = None
+
+    def _evaluate_model(self, param):
+        # param shape: (N, d)
+        return CompactModel.inexact_sol(param, self.nsamp).T
+
+    @property
+    def parallel_eval(self):
+        return True
+
+    @property
+    def nsamp(self):
+        if self._nsamp is None:
+            raise AttributeError("nsamp not specified in model with adaptive number of samples")
+        return self._nsamp
+
+    @nsamp.setter
+    def nsamp(self, value):
+        self._nsamp = round(value)
