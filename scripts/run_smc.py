@@ -13,7 +13,7 @@ from particles.core import SMC
 
 resample_move_end = True
 
-def run_simulation(problem="wos", likelihood="exact", mcmc="rw_reg_cal", sampler="adaptive_tempering", ground_truth_par=None):
+def run_simulation(problem="wos", likelihood="exact", mcmc="rw_reg_cal", sampler="adaptive_tempering", ground_truth_par=None, **sampler_overrides):
     """
     Run a single SMC tempering simulation using modular Hydra configurations.
     
@@ -26,20 +26,31 @@ def run_simulation(problem="wos", likelihood="exact", mcmc="rw_reg_cal", sampler
     mcmc : str
         The MCMC step mutation profile, e.g. "rw_reg_cal", "rw_unc", or "noisy_metropolis_cal".
     sampler : str
-        The SMC sampler profile, e.g. "adaptive_tempering" or "temp_adapt_nsamp_no_rew".
+        The SMC sampler profile, e.g. "adaptive_tempering", "temp_adapt_nsamp_no_rew", or "tempering".
     ground_truth_par : array-like, optional
         A custom parameter array to override the default ground truth loaded from YAML.
+    **sampler_overrides : dict
+        Dynamic keyword arguments to override properties of the sampler (e.g. exponents=[...]).
     """
     # ---------------------------------------------------------
     # 0. COMPOSE CONFIGURATION (Programmatic Compose API)
     # ---------------------------------------------------------
+    overrides = [
+        f"problem={problem}",
+        f"likelihood={likelihood}",
+        f"mcmc={mcmc}",
+        f"sampler={sampler}"
+    ]
+    
+    for key, val in sampler_overrides.items():
+        if isinstance(val, list):
+            val_str = "[" + ",".join(map(str, val)) + "]"
+        else:
+            val_str = str(val)
+        overrides.append(f"sampler.{key}={val_str}")
+
     with initialize(version_base=None, config_path="../conf"):
-        cfg = compose(config_name="config", overrides=[
-            f"problem={problem}",
-            f"likelihood={likelihood}",
-            f"mcmc={mcmc}",
-            f"sampler={sampler}"
-        ])
+        cfg = compose(config_name="config", overrides=overrides)
 
     # ---------------------------------------------------------
     # 1. DYNAMIC PROBLEM & LIKELIHOOD SETUP
@@ -142,4 +153,11 @@ def run_simulation(problem="wos", likelihood="exact", mcmc="rw_reg_cal", sampler
 
 if __name__ == "__main__":
     # Programmatic invocation matching original default profile out-of-the-box
+    print("--- Running default adaptive tempering simulation ---")
     run_simulation(problem="wos", likelihood="exact", mcmc="rw_reg_cal", sampler="adaptive_tempering")
+    
+    print("\n--- Running fixed tempering simulation with default exponents ---")
+    run_simulation(problem="wos", likelihood="exact", mcmc="rw_reg_cal", sampler="tempering")
+    
+    print("\n--- Running fixed tempering simulation with custom exponents ---")
+    run_simulation(problem="wos", likelihood="exact", mcmc="rw_reg_cal", sampler="tempering", exponents=[0.01, 0.05, 0.2, 0.5, 1.0])
