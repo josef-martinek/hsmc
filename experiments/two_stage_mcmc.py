@@ -232,7 +232,7 @@ class Test2StageMCMCExperiment(ExperimentRunner):
         setup = [budget, percent]
         self.setups.append(setup)
 
-        # Compute Wasserstein distances against references
+        # Compute Wasserstein distances against references (Mean only)
         par_dim = result.shape[1]
         W_ex = np.zeros(par_dim)
         W_wos = np.zeros(par_dim)
@@ -243,13 +243,6 @@ class Test2StageMCMCExperiment(ExperimentRunner):
 
         self.W_ex_by_setup.append(np.mean(W_ex))
         self.W_wos_by_setup.append(np.mean(W_wos))
-        self.Wmax_ex_by_setup.append(np.max(W_ex))
-        self.Wmax_wos_by_setup.append(np.max(W_wos))
-        
-        # Weighted Wasserstein distances
-        weights = 1 / np.arange(1, par_dim + 1) ** self.q
-        self.Ww_ex_by_setup.append(np.average(W_ex, weights=weights))
-        self.Ww_wos_by_setup.append(np.average(W_wos, weights=weights))
 
         # Store raw particles if Regime A (raw_particles)
         if storage_mode == "raw_particles":
