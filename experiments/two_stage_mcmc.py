@@ -251,16 +251,10 @@ class Test2StageMCMCExperiment(ExperimentRunner):
     def save_results(self, output_dir):
         save_dict = {
             "n_runs": self.n_runs,
+            "param_dim": getattr(self, "param_dim", None),
             "observed_data": self.observed_data,
             "W_ex_by_setup": np.array(self.W_ex_by_setup),
             "W_wos_by_setup": np.array(self.W_wos_by_setup),
-            "Wmax_ex_by_setup": np.array(self.Wmax_ex_by_setup),
-            "Wmax_wos_by_setup": np.array(self.Wmax_wos_by_setup),
-            "Ww_ex_by_setup": np.array(self.Ww_ex_by_setup),
-            "Ww_wos_by_setup": np.array(self.Ww_wos_by_setup),
-            "init_Wmean_ex": self.init_Wmean_ex,
-            "init_Wmax_ex": self.init_Wmax_ex,
-            "init_Ww_ex": self.init_Ww_ex,
             "setups": np.array(self.setups),
             "WOS_ref_sol": self.WOS_ref_sol
         }
