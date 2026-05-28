@@ -49,7 +49,7 @@ class Test2StageMCMCExperiment(ExperimentRunner):
 
             # Replicate exact legacy generation: seed=5, scale=4.0
             rng_gt = np.random.default_rng(seed=problem_cfg.ground_truth_seed)
-            gt = rng_gt.normal(scale=4.0, size=param_dim)
+            gt = rng_gt.normal(scale=np.sqrt(prior_marg_var), size=param_dim)
 
             true_sol = WOSHD.exact_sol(gt).reshape(-1, 1)
 
