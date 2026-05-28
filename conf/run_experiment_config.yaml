@@ -1,0 +1,11 @@
+defaults:
+  - problem: wos
+  - likelihood: inexact_fix
+  - mcmc: two_stage
+  - sampler: tempering
+  - experiment: test_2stage
+  - _self_
+
+num_cpus: 8
+results_base_dir: "data"
+WOS_ref_sol: false

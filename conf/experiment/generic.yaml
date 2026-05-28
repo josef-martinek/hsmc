@@ -1,0 +1,14 @@
+# @package _global_
+defaults:
+  - override /likelihood: inexact_adapt
+  - override /mcmc: rw_reg_cal
+  - override /sampler: temp_adapt_nsamp_no_rew
+
+runner:
+  _target_: experiments.generic_experiment.GenericSweepExperiment
+
+sweep:
+  n_runs: 5
+  variables:
+    problem.n_particles: [20, 50]
+    problem.len_chain: [5, 10]
