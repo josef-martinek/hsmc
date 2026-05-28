@@ -6,7 +6,7 @@ defaults:
   - experiment: two_stage
   - _self_
 
-num_cpus: 8
+num_cpus: null
 results_base_dir: "data"
 WOS_ref_sol: false
 export_setup_only: false

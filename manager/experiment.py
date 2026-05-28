@@ -69,12 +69,15 @@ class ExperimentManager:
 
         # 1. Housekeeping and Ray Init
         num_cpus = self.cfg.num_cpus
-        if num_cpus is not None and num_cpus > 0:
-            print(f"Initializing Ray with num_cpus={num_cpus}...")
+        import multiprocessing
+        max_cpus = multiprocessing.cpu_count()
+        if num_cpus is None or num_cpus <= 0:
+            num_cpus = max_cpus
+            print(f"num_cpus not specified or <= 0. Defaulting to maximum available CPUs: {num_cpus}...")
             ray.init(ignore_reinit_error=True, num_cpus=num_cpus)
         else:
-            print("Initializing Ray (default settings)...")
-            ray.init(ignore_reinit_error=True)
+            print(f"Initializing Ray with num_cpus={num_cpus} (max available: {max_cpus})...")
+            ray.init(ignore_reinit_error=True, num_cpus=num_cpus)
 
         # 2. Output Directory Setup
         base_dir = self.cfg.results_base_dir
