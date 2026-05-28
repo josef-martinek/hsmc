@@ -1,7 +1,9 @@
 # @package _global_
 defaults:
-  - override /problem: wos
-  - override /sampler: tempering
+  - override /problem: null
+  - override /likelihood: null
+  - override /mcmc: null
+  - override /sampler: null
   - _self_
 
 WOS_ref_sol: false
@@ -13,7 +15,6 @@ problem:
   n_particles: 100
   Nmin: 32
   fine_over_coarse_nsamp: 32
-  ground_truth_par: null
   ground_truth_seed: 5
 
 experiment:

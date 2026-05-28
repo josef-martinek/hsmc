@@ -44,6 +44,18 @@ class ExperimentManager:
         self.threshold = 5 * 10**6
 
     def run(self):
+        # If we only want to export the setup configuration
+        if self.cfg.get("export_setup_only", False):
+            base_dir = self.cfg.results_base_dir
+            output_dir = info.create_results_folder(base_dir=base_dir)
+            print(f"Created results folder: {output_dir}")
+            from omegaconf import OmegaConf
+            setup_file = os.path.join(output_dir, "setup.yaml")
+            with open(setup_file, "w") as f:
+                f.write(OmegaConf.to_yaml(self.cfg, resolve=True))
+            print("export_setup_only is True. Exiting early.")
+            return output_dir
+
         # 1. Housekeeping and Ray Init
         num_cpus = self.cfg.num_cpus
         if num_cpus is not None and num_cpus > 0:

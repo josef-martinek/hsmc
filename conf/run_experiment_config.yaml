@@ -9,6 +9,7 @@ defaults:
 num_cpus: 8
 results_base_dir: "data"
 WOS_ref_sol: false
+export_setup_only: false
 
 hydra:
   output_subdir: null

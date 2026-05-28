@@ -1,17 +1,17 @@
 import os
 import time
-import importlib
 import numpy as np
 import ray
 from scipy.stats import wasserstein_distance
 from particles import distributions as dists
 from particles import smc_samplers as ssp
 from particles.core import SMC
-from hydra.utils import instantiate
 from omegaconf import OmegaConf
 
 from manager.experiment import ExperimentRunner
 from utils.is_get_ref_sol import get_ref_sols
+from problem_setup.wos.likelihood_model import WOSHD, IPModelInexactFixHD, IPModelInexactAdaptHD
+from core.mcmc import NoisyMetropolisCal, RWRegCal, TwoStageMCMC
 
 class Test2StageMCMCExperiment(ExperimentRunner):
     def setup(self, cfg):
@@ -35,45 +35,23 @@ class Test2StageMCMCExperiment(ExperimentRunner):
         self.post_samp_refs_wos = {}
         self.observed_datas = {}
 
-        # 2. Dynamic import of Exact Model
-        prob_lik = importlib.import_module(f"{problem_cfg.path}.likelihood_model")
-        ModelExact = getattr(prob_lik, problem_cfg.model_exact_class)
-
         for param_dim in param_dims:
             print(f"Setting up dimension: {param_dim}")
             
-            # 1. Determine prior type dynamically
-            prior_type = problem_cfg.prior_type
-            if prior_type == "uniform":
-                a = problem_cfg.prior_a
-                b = problem_cfg.prior_b
-                prior = dists.StructDist({
-                    'param': dists.Uniform(
-                        a=a * np.ones(param_dim),
-                        b=b * np.ones(param_dim)
-                    )
-                })
-            elif prior_type == "mvnormal":
-                prior_marg_var = problem_cfg.prior_marg_var
-                prior = dists.StructDist({
-                    'param': dists.MvNormal(
-                        loc=np.zeros(param_dim),
-                        cov=prior_marg_var * np.eye(param_dim)
-                    )
-                })
-            else:
-                raise ValueError(f"Unknown prior_type: {prior_type}")
+            # Prior is MvNormal as defined in the WoS experiment
+            prior_marg_var = problem_cfg.prior_marg_var
+            prior = dists.StructDist({
+                'param': dists.MvNormal(
+                    loc=np.zeros(param_dim),
+                    cov=prior_marg_var * np.eye(param_dim)
+                )
+            })
 
-            # 3. Generate synthetic observed data
-            gt_cfg = problem_cfg.ground_truth_par
-            if gt_cfg is None:
-                # Replicate exact legacy generation: seed=5, scale=4.0
-                rng_gt = np.random.default_rng(seed=problem_cfg.ground_truth_seed)
-                gt = rng_gt.normal(scale=4.0, size=param_dim)
-            else:
-                gt = np.asarray(gt_cfg)
+            # Replicate exact legacy generation: seed=5, scale=4.0
+            rng_gt = np.random.default_rng(seed=problem_cfg.ground_truth_seed)
+            gt = rng_gt.normal(scale=4.0, size=param_dim)
 
-            true_sol = ModelExact.exact_sol(gt).reshape(-1, 1)
+            true_sol = WOSHD.exact_sol(gt).reshape(-1, 1)
 
             rng_data = np.random.default_rng(seed=81)
             observed_data = true_sol + rng_data.normal(
@@ -82,7 +60,7 @@ class Test2StageMCMCExperiment(ExperimentRunner):
                 size=true_sol.shape
             )
 
-            # 4. Compute reference solutions once per dimension
+            # Compute reference solutions once per dimension
             print(f"Computing reference solutions for param_dim={param_dim}...")
             post_samp_ref_exact, post_samp_ref_wos = get_ref_sols(
                 prior,
@@ -93,11 +71,11 @@ class Test2StageMCMCExperiment(ExperimentRunner):
             )
             print(f"Reference solutions computed for param_dim={param_dim}.")
 
-            # 6. Put shared variables into Ray object store
+            # Put shared variables into Ray object store
             self.prior_refs[param_dim] = ray.put(prior)
             self.observed_data_refs[param_dim] = ray.put(observed_data)
             
-            # 7. Store reference solutions and observed data mapping
+            # Store reference solutions and observed data mapping
             self.post_samp_refs_exact[param_dim] = post_samp_ref_exact
             self.post_samp_refs_wos[param_dim] = post_samp_ref_wos
             self.observed_datas[param_dim] = observed_data
@@ -183,45 +161,31 @@ class Test2StageMCMCExperiment(ExperimentRunner):
         len_coarse_chain = coarse_nsteps + 1
         len_fine_chain = fine_nsteps + 1
 
-        # 5. Instantiate Models via Hydra
-        model_fine_cfg = {
-            "_target_": f"{cfg.problem.path}.likelihood_model.IPModelInexactFix{cfg.problem.likelihood_suffix}",
-            "nsamp": Nmin
-        }
-        model_coarse_cfg = {
-            "_target_": f"{cfg.problem.path}.likelihood_model.IPModelInexactAdapt{cfg.problem.likelihood_suffix}"
-        }
-        
-        model_fine = instantiate(
-            model_fine_cfg,
+        # 5. Instantiate Models directly
+        model_fine = IPModelInexactFixHD(
             prior=prior,
             data_noise_cov=data_noise_var,
-            data=observed_data
+            data=observed_data,
+            nsamp=Nmin
         )
-        model_coarse = instantiate(
-            model_coarse_cfg,
+        model_coarse = IPModelInexactAdaptHD(
             prior=prior,
             data_noise_cov=data_noise_var,
             data=observed_data
         )
 
-        # 6. Instantiate MCMC components
-        mcmc_coarse_cfg = {"_target_": "core.mcmc.NoisyMetropolisCal"}
-        mcmc_fine_cfg = {"_target_": "core.mcmc.RWRegCal", "eye_prop": True}
+        # 6. Instantiate MCMC components directly
+        mcmc_coarse = NoisyMetropolisCal()
+        mcmc_fine = RWRegCal(eye_prop=True)
 
-        mcmc_coarse = instantiate(mcmc_coarse_cfg)
-        mcmc_fine = instantiate(mcmc_fine_cfg)
-
-        two_stage_cfg = {
-            "_target_": "core.mcmc.TwoStageMCMC",
-            "mcmc1": mcmc_coarse,
-            "mcmc2": mcmc_fine,
-            "len_chain1": len_coarse_chain,
-            "len_chain2": len_fine_chain,
-            "coarse_model": model_coarse,
-            "fine_over_coarse": fine_over_coarse_nsamp
-        }
-        two_stage_chain = instantiate(two_stage_cfg)
+        two_stage_chain = TwoStageMCMC(
+            mcmc1=mcmc_coarse,
+            mcmc2=mcmc_fine,
+            len_chain1=len_coarse_chain,
+            len_chain2=len_fine_chain,
+            coarse_model=model_coarse,
+            fine_over_coarse=fine_over_coarse_nsamp
+        )
 
         # 7. Instantiate Tempering Sampler
         fk_tempering = ssp.Tempering(
