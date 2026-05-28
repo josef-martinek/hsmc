@@ -45,7 +45,14 @@ class Test2StageMCMCExperiment(ExperimentRunner):
         ModelExact = getattr(prob_lik, problem_cfg.model_exact_class)
 
         # 3. Generate synthetic observed data
-        gt = np.asarray(problem_cfg.ground_truth_par)
+        gt_cfg = problem_cfg.ground_truth_par
+        if gt_cfg is None:
+            # Replicate exact legacy generation: seed=5, scale=4.0
+            rng_gt = np.random.default_rng(seed=problem_cfg.ground_truth_seed)
+            gt = rng_gt.normal(scale=4.0, size=param_dim)
+        else:
+            gt = np.asarray(gt_cfg)
+
         true_sol = ModelExact.exact_sol(gt).reshape(-1, 1)
 
         rng_data = np.random.default_rng(seed=81)
@@ -67,57 +74,24 @@ class Test2StageMCMCExperiment(ExperimentRunner):
         )
         print("Reference solutions computed.")
 
-        # 5. Compute initial errors (prior vs exact reference)
-        print("Computing initial (prior) errors...")
-        N_init = 100
-        W_init_ex = []
-        Wmax_init_ex = []
-        Ww_init_ex = []
-
-        for _ in range(N_init):
-            prior_samples = prior.rvs(problem_cfg.n_particles)['param']
-            W = np.zeros(param_dim)
-            for i in range(param_dim):
-                W[i] = wasserstein_distance(
-                    prior_samples[:, i],
-                    post_samp_ref_exact[:, i]
-                )
-            W_init_ex.append(np.mean(W))
-            Wmax_init_ex.append(np.max(W))
-            Ww_init_ex.append(
-                np.average(W, weights=1 / np.arange(1, param_dim + 1) ** ModelExact.q)
-            )
-
-        init_Wmean_ex = np.mean(W_init_ex)
-        init_Wmax_ex = np.mean(Wmax_init_ex)
-        init_Ww_ex = np.mean(Ww_init_ex)
-        print("Initial errors computed.")
-
         # 6. Put shared variables into Ray object store
         self.prior_ref = ray.put(prior)
         self.observed_data_ref = ray.put(observed_data)
 
         # 7. Store attributes for processing & saving
+        self.param_dim = param_dim
         self.post_samp_ref_exact = post_samp_ref_exact
         self.post_samp_ref_wos = post_samp_ref_wos
         self.observed_data = observed_data
-        self.init_Wmean_ex = init_Wmean_ex
-        self.init_Wmax_ex = init_Wmax_ex
-        self.init_Ww_ex = init_Ww_ex
-        self.q = ModelExact.q
         self.WOS_ref_sol = WOS_ref_sol
         
         sweep_cfg = cfg.experiment.sweep
         self.n_runs = sweep_cfg.n_runs
 
-        # Initialize lists for task data collection
+        # Initialize lists for task data collection (Max, Weighted, and Initial errors removed)
         self.setups = []
         self.W_ex_by_setup = []
         self.W_wos_by_setup = []
-        self.Wmax_ex_by_setup = []
-        self.Wmax_wos_by_setup = []
-        self.Ww_ex_by_setup = []
-        self.Ww_wos_by_setup = []
         self.raw_particles_by_setup = []
 
     def generate_tasks(self, cfg):
