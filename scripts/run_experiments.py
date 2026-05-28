@@ -8,7 +8,8 @@ def main(cfg: DictConfig):
     # Dynamically instantiate the runner based on the config.
     # Instantiates either Test2StageMCMCExperiment or GenericSweepExperiment
     print("Dynamically instantiating experiment runner...")
-    runner = instantiate(cfg.runner)
+    runner = instantiate(cfg.experiment.runner)
+
         
     # Initialize and execute the ExperimentManager
     print("Initializing Experiment Manager...")

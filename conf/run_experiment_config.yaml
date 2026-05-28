@@ -9,3 +9,12 @@ defaults:
 num_cpus: 8
 results_base_dir: "data"
 WOS_ref_sol: false
+
+hydra:
+  output_subdir: null
+  run:
+    dir: .
+  sweep:
+    dir: .
+    subdir: .
+

@@ -107,7 +107,7 @@ class Test2StageMCMCExperiment(ExperimentRunner):
         self.q = ModelExact.q
         self.WOS_ref_sol = WOS_ref_sol
         
-        sweep_cfg = cfg.sweep
+        sweep_cfg = cfg.experiment.sweep
         self.n_runs = sweep_cfg.n_runs
 
         # Initialize lists for task data collection
@@ -121,7 +121,7 @@ class Test2StageMCMCExperiment(ExperimentRunner):
         self.raw_particles_by_setup = []
 
     def generate_tasks(self, cfg):
-        sweep_cfg = cfg.sweep
+        sweep_cfg = cfg.experiment.sweep
         n_runs = sweep_cfg.n_runs
         budgets = sweep_cfg.budgets
         

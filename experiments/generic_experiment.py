@@ -60,7 +60,7 @@ class GenericSweepExperiment(ExperimentRunner):
         # 5. Store attributes for processing & saving
         self.observed_data = observed_data
         
-        sweep_cfg = cfg.sweep
+        sweep_cfg = cfg.experiment.sweep
         self.n_runs = sweep_cfg.n_runs
 
         # Initialize lists for task data collection
@@ -69,7 +69,7 @@ class GenericSweepExperiment(ExperimentRunner):
         self.stats_by_setup = []
 
     def generate_tasks(self, cfg):
-        sweep_cfg = cfg.sweep
+        sweep_cfg = cfg.experiment.sweep
         n_runs = sweep_cfg.n_runs
         
         # variables is a dict: {dot_path: [values]}

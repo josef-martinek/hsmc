@@ -58,6 +58,13 @@ class ExperimentManager:
         output_dir = info.create_results_folder(base_dir=base_dir)
         print(f"Created results folder: {output_dir}")
 
+        # Save setup configuration
+        from omegaconf import OmegaConf
+        setup_file = os.path.join(output_dir, "setup.yaml")
+        with open(setup_file, "w") as f:
+            f.write(OmegaConf.to_yaml(self.cfg, resolve=True))
+
+
         # 3. Runner Setup
         print("Executing runner setup...")
         self.runner.setup(self.cfg)
