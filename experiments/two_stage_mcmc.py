@@ -287,8 +287,17 @@ class Test2StageMCMCExperiment(ExperimentRunner):
         if self.raw_particles_by_setup:
             particles_list = [p[1] for p in self.raw_particles_by_setup]
             params_list = [p[0] for p in self.raw_particles_by_setup]
-            save_dict["raw_particles"] = np.array(particles_list, dtype=object)
-            save_dict["raw_particles_params"] = np.array(params_list, dtype=object)
+            
+            raw_particles = np.empty(len(particles_list), dtype=object)
+            for idx, p in enumerate(particles_list):
+                raw_particles[idx] = p
+                
+            raw_particles_params = np.empty(len(params_list), dtype=object)
+            for idx, p in enumerate(params_list):
+                raw_particles_params[idx] = p
+                
+            save_dict["raw_particles"] = raw_particles
+            save_dict["raw_particles_params"] = raw_particles_params
 
         out_file = os.path.join(output_dir, "smc_results.npz")
         np.savez_compressed(out_file, **save_dict)
