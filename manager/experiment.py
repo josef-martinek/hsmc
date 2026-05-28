@@ -53,6 +53,17 @@ class ExperimentManager:
             setup_file = os.path.join(output_dir, "setup.yaml")
             with open(setup_file, "w") as f:
                 f.write(OmegaConf.to_yaml(self.cfg, resolve=True))
+            
+            # Export runner simulation file next to setup.yaml
+            import inspect
+            import shutil
+            try:
+                runner_file = inspect.getfile(self.runner.__class__)
+                shutil.copy(runner_file, output_dir)
+                print(f"Exported runner simulation file: {runner_file} to {output_dir}")
+            except Exception as e:
+                print(f"Could not export runner source file: {e}")
+
             print("export_setup_only is True. Exiting early.")
             return output_dir
 
@@ -76,6 +87,16 @@ class ExperimentManager:
         with open(setup_file, "w") as f:
             f.write(OmegaConf.to_yaml(self.cfg, resolve=True))
 
+        # Export runner simulation file next to setup.yaml
+        import inspect
+        import shutil
+        try:
+            runner_file = inspect.getfile(self.runner.__class__)
+            shutil.copy(runner_file, output_dir)
+            print(f"Exported runner simulation file: {runner_file} to {output_dir}")
+        except Exception as e:
+            print(f"Could not export runner source file: {e}")
+
 
         # 3. Runner Setup
         print("Executing runner setup...")
@@ -90,7 +111,16 @@ class ExperimentManager:
         # 5. Dual-Regime Storage Check
         problem_cfg = self.cfg.problem
         num_particles = problem_cfg.n_particles
-        param_dim = problem_cfg.param_dim
+        
+        # Determine param_dim robustly (it can be omitted in configuration sweeps)
+        param_dim = problem_cfg.get("param_dim", None)
+        if param_dim is None:
+            sweep_cfg = self.cfg.get("experiment", {}).get("sweep", {})
+            if "param_dims" in sweep_cfg:
+                param_dim = max(sweep_cfg.param_dims)
+            else:
+                param_dim = 1
+                
         total_floats = num_tasks * num_particles * param_dim
 
         if total_floats <= self.threshold:
