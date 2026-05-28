@@ -4,12 +4,6 @@ defaults:
   - override /sampler: tempering
   - _self_
 
-hydra:
-  mode: MULTIRUN
-  sweeper:
-    params:
-      problem.param_dim: 8, 16, 32, 64, 128, 256
-
 WOS_ref_sol: false
 
 problem:
@@ -29,3 +23,4 @@ experiment:
     n_runs: 200
     budgets: [5.0, 10.0, 20.0, 40.0, 80.0]
     percent_step: 2
+    param_dims: [8, 16, 32, 64, 128, 256]

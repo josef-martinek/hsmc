@@ -16,77 +16,91 @@ from utils.is_get_ref_sol import get_ref_sols
 class Test2StageMCMCExperiment(ExperimentRunner):
     def setup(self, cfg):
         problem_cfg = cfg.problem
-        param_dim = problem_cfg.param_dim
+        sweep_cfg = cfg.experiment.sweep
         
-        # 1. Determine prior type dynamically
-        prior_type = problem_cfg.prior_type
-        if prior_type == "uniform":
-            a = problem_cfg.prior_a
-            b = problem_cfg.prior_b
-            prior = dists.StructDist({
-                'param': dists.Uniform(
-                    a=a * np.ones(param_dim),
-                    b=b * np.ones(param_dim)
-                )
-            })
-        elif prior_type == "mvnormal":
-            prior_marg_var = problem_cfg.prior_marg_var
-            prior = dists.StructDist({
-                'param': dists.MvNormal(
-                    loc=np.zeros(param_dim),
-                    cov=prior_marg_var * np.eye(param_dim)
-                )
-            })
+        # Determine the param_dims sweep list, falling back to [problem_cfg.param_dim] if not provided
+        if "param_dims" in sweep_cfg:
+            param_dims = list(sweep_cfg.param_dims)
         else:
-            raise ValueError(f"Unknown prior_type: {prior_type}")
+            param_dims = [problem_cfg.param_dim]
+
+        self.param_dims = param_dims
+        self.WOS_ref_sol = cfg.WOS_ref_sol
+        self.n_runs = sweep_cfg.n_runs
+
+        # Dictionaries to store ray.put refs and reference solutions per param_dim
+        self.prior_refs = {}
+        self.observed_data_refs = {}
+        self.post_samp_refs_exact = {}
+        self.post_samp_refs_wos = {}
+        self.observed_datas = {}
 
         # 2. Dynamic import of Exact Model
         prob_lik = importlib.import_module(f"{problem_cfg.path}.likelihood_model")
         ModelExact = getattr(prob_lik, problem_cfg.model_exact_class)
 
-        # 3. Generate synthetic observed data
-        gt_cfg = problem_cfg.ground_truth_par
-        if gt_cfg is None:
-            # Replicate exact legacy generation: seed=5, scale=4.0
-            rng_gt = np.random.default_rng(seed=problem_cfg.ground_truth_seed)
-            gt = rng_gt.normal(scale=4.0, size=param_dim)
-        else:
-            gt = np.asarray(gt_cfg)
+        for param_dim in param_dims:
+            print(f"Setting up dimension: {param_dim}")
+            
+            # 1. Determine prior type dynamically
+            prior_type = problem_cfg.prior_type
+            if prior_type == "uniform":
+                a = problem_cfg.prior_a
+                b = problem_cfg.prior_b
+                prior = dists.StructDist({
+                    'param': dists.Uniform(
+                        a=a * np.ones(param_dim),
+                        b=b * np.ones(param_dim)
+                    )
+                })
+            elif prior_type == "mvnormal":
+                prior_marg_var = problem_cfg.prior_marg_var
+                prior = dists.StructDist({
+                    'param': dists.MvNormal(
+                        loc=np.zeros(param_dim),
+                        cov=prior_marg_var * np.eye(param_dim)
+                    )
+                })
+            else:
+                raise ValueError(f"Unknown prior_type: {prior_type}")
 
-        true_sol = ModelExact.exact_sol(gt).reshape(-1, 1)
+            # 3. Generate synthetic observed data
+            gt_cfg = problem_cfg.ground_truth_par
+            if gt_cfg is None:
+                # Replicate exact legacy generation: seed=5, scale=4.0
+                rng_gt = np.random.default_rng(seed=problem_cfg.ground_truth_seed)
+                gt = rng_gt.normal(scale=4.0, size=param_dim)
+            else:
+                gt = np.asarray(gt_cfg)
 
-        rng_data = np.random.default_rng(seed=81)
-        observed_data = true_sol + rng_data.normal(
-            loc=0.,
-            scale=np.sqrt(problem_cfg.data_noise_var),
-            size=true_sol.shape
-        )
+            true_sol = ModelExact.exact_sol(gt).reshape(-1, 1)
 
-        # 4. Compute reference solutions once
-        WOS_ref_sol = cfg.WOS_ref_sol
-        print("Computing reference solutions...")
-        post_samp_ref_exact, post_samp_ref_wos = get_ref_sols(
-            prior,
-            problem_cfg.data_noise_var,
-            observed_data,
-            problem_cfg.Nmin,
-            WOS_ref_sol
-        )
-        print("Reference solutions computed.")
+            rng_data = np.random.default_rng(seed=81)
+            observed_data = true_sol + rng_data.normal(
+                loc=0.,
+                scale=np.sqrt(problem_cfg.data_noise_var),
+                size=true_sol.shape
+            )
 
-        # 6. Put shared variables into Ray object store
-        self.prior_ref = ray.put(prior)
-        self.observed_data_ref = ray.put(observed_data)
+            # 4. Compute reference solutions once per dimension
+            print(f"Computing reference solutions for param_dim={param_dim}...")
+            post_samp_ref_exact, post_samp_ref_wos = get_ref_sols(
+                prior,
+                problem_cfg.data_noise_var,
+                observed_data,
+                problem_cfg.Nmin,
+                self.WOS_ref_sol
+            )
+            print(f"Reference solutions computed for param_dim={param_dim}.")
 
-        # 7. Store attributes for processing & saving
-        self.param_dim = param_dim
-        self.post_samp_ref_exact = post_samp_ref_exact
-        self.post_samp_ref_wos = post_samp_ref_wos
-        self.observed_data = observed_data
-        self.WOS_ref_sol = WOS_ref_sol
-        
-        sweep_cfg = cfg.experiment.sweep
-        self.n_runs = sweep_cfg.n_runs
+            # 6. Put shared variables into Ray object store
+            self.prior_refs[param_dim] = ray.put(prior)
+            self.observed_data_refs[param_dim] = ray.put(observed_data)
+            
+            # 7. Store reference solutions and observed data mapping
+            self.post_samp_refs_exact[param_dim] = post_samp_ref_exact
+            self.post_samp_refs_wos[param_dim] = post_samp_ref_wos
+            self.observed_datas[param_dim] = observed_data
 
         # Initialize lists for task data collection (Max, Weighted, and Initial errors removed)
         self.setups = []
@@ -110,21 +124,23 @@ class Test2StageMCMCExperiment(ExperimentRunner):
         cfg_dict = OmegaConf.to_container(cfg, resolve=True)
 
         tasks = []
-        for budget in budgets:
-            for percent in percents_on_coarse:
-                for run_idx in range(n_runs):
-                    tasks.append({
-                        "budget": budget,
-                        "percent": percent,
-                        "run_idx": run_idx,
-                        "prior_ref": self.prior_ref,
-                        "observed_data_ref": self.observed_data_ref,
-                        "cfg": cfg_dict,
-                        "Nmin": cfg.problem.Nmin,
-                        "n_particles": cfg.problem.n_particles,
-                        "fine_over_coarse_nsamp": cfg.problem.fine_over_coarse_nsamp,
-                        "data_noise_var": cfg.problem.data_noise_var
-                    })
+        for param_dim in self.param_dims:
+            for budget in budgets:
+                for percent in percents_on_coarse:
+                    for run_idx in range(n_runs):
+                        tasks.append({
+                            "param_dim": param_dim,
+                            "budget": budget,
+                            "percent": percent,
+                            "run_idx": run_idx,
+                            "prior_ref": self.prior_refs[param_dim],
+                            "observed_data_ref": self.observed_data_refs[param_dim],
+                            "cfg": cfg_dict,
+                            "Nmin": cfg.problem.Nmin,
+                            "n_particles": cfg.problem.n_particles,
+                            "fine_over_coarse_nsamp": cfg.problem.fine_over_coarse_nsamp,
+                            "data_noise_var": cfg.problem.data_noise_var
+                        })
         return tasks
 
     @staticmethod
@@ -149,6 +165,10 @@ class Test2StageMCMCExperiment(ExperimentRunner):
 
         # 3. Read config & parameters
         cfg = OmegaConf.create(task_params["cfg"])
+        
+        # Explicitly override the dimension in the configuration so workers use the correct model dimension
+        cfg.problem.param_dim = task_params["param_dim"]
+
         Nmin = task_params["Nmin"]
         n_particles = task_params["n_particles"]
         fine_over_coarse_nsamp = task_params["fine_over_coarse_nsamp"]
@@ -229,7 +249,8 @@ class Test2StageMCMCExperiment(ExperimentRunner):
     def process_result(self, task_params, result, storage_mode):
         budget = task_params["budget"]
         percent = task_params["percent"]
-        setup = [budget, percent]
+        dim = task_params["param_dim"]
+        setup = [budget, percent, dim]
         self.setups.append(setup)
 
         # Compute Wasserstein distances against references (Mean only)
@@ -237,9 +258,12 @@ class Test2StageMCMCExperiment(ExperimentRunner):
         W_ex = np.zeros(par_dim)
         W_wos = np.zeros(par_dim)
 
+        post_ref_exact = self.post_samp_refs_exact[dim]
+        post_ref_wos = self.post_samp_refs_wos[dim]
+
         for i in range(par_dim):
-            W_ex[i] = wasserstein_distance(result[:, i], self.post_samp_ref_exact[:, i])
-            W_wos[i] = wasserstein_distance(result[:, i], self.post_samp_ref_wos[:, i])
+            W_ex[i] = wasserstein_distance(result[:, i], post_ref_exact[:, i])
+            W_wos[i] = wasserstein_distance(result[:, i], post_ref_wos[:, i])
 
         self.W_ex_by_setup.append(np.mean(W_ex))
         self.W_wos_by_setup.append(np.mean(W_wos))
@@ -251,8 +275,8 @@ class Test2StageMCMCExperiment(ExperimentRunner):
     def save_results(self, output_dir):
         save_dict = {
             "n_runs": self.n_runs,
-            "param_dim": getattr(self, "param_dim", None),
-            "observed_data": self.observed_data,
+            "param_dims": np.array(self.param_dims),
+            "observed_datas": self.observed_datas,
             "W_ex_by_setup": np.array(self.W_ex_by_setup),
             "W_wos_by_setup": np.array(self.W_wos_by_setup),
             "setups": np.array(self.setups),
