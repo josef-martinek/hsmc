@@ -1,0 +1,31 @@
+# @package _global_
+defaults:
+  - override /problem: wos
+  - override /sampler: tempering
+  - _self_
+
+hydra:
+  mode: MULTIRUN
+  sweeper:
+    params:
+      problem.param_dim: 8, 16, 32, 64, 128, 256
+
+WOS_ref_sol: false
+
+problem:
+  param_dim: 32
+  data_noise_var: 1.6
+  prior_marg_var: 4.0
+  n_particles: 100
+  Nmin: 32
+  fine_over_coarse_nsamp: 32
+  ground_truth_par: null
+  ground_truth_seed: 5
+
+experiment:
+  runner:
+    _target_: experiments.two_stage_mcmc.Test2StageMCMCExperiment
+  sweep:
+    n_runs: 200
+    budgets: [5.0, 10.0, 20.0, 40.0, 80.0]
+    percent_step: 2
