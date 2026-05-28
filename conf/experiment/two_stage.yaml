@@ -1,5 +1,5 @@
 runner:
-  _target_: experiments.test_2stage_mcmc.Test2StageMCMCExperiment
+  _target_: experiments.two_stage_mcmc.Test2StageMCMCExperiment
 
 sweep:
   n_runs: 10

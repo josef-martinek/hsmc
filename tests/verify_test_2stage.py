@@ -12,7 +12,7 @@ from utils.is_get_ref_sol import get_ref_sols
 from utils.is_trial import run_single_is_trial
 
 from manager.experiment import ExperimentManager
-from experiments.test_2stage_mcmc import Test2StageMCMCExperiment
+from experiments.two_stage_mcmc import Test2StageMCMCExperiment
 from omegaconf import OmegaConf
 
 # -----------------------------
