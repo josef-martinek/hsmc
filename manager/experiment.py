@@ -115,16 +115,19 @@ class ExperimentManager:
         problem_cfg = self.cfg.problem
         num_particles = problem_cfg.n_particles
         
-        # Determine param_dim robustly (it can be omitted in configuration sweeps)
+        # Determine total_floats robustly
         param_dim = problem_cfg.get("param_dim", None)
-        if param_dim is None:
+        if param_dim is not None:
+            total_floats = num_tasks * num_particles * param_dim
+        else:
             sweep_cfg = self.cfg.get("experiment", {}).get("sweep", {})
             if "param_dims" in sweep_cfg:
-                param_dim = max(sweep_cfg.param_dims)
+                param_dims = sweep_cfg.param_dims
+                tasks_per_dim = num_tasks / len(param_dims)
+                total_floats = tasks_per_dim * num_particles * sum(param_dims)
             else:
-                param_dim = 1
-                
-        total_floats = num_tasks * num_particles * param_dim
+                print("Warning: no parameter dimensions have been specified on the input, cost cannot be estimated. Assuming cost is infty.")
+                total_floats = float('inf')
 
         if total_floats <= self.threshold:
             storage_mode = "raw_particles"
