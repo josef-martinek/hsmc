@@ -136,6 +136,8 @@ class ExperimentManager:
         # 6. Dispatch Tasks
         # Dynamic Ray wrapping of the static run_task method
         print("Dispatching tasks to Ray cluster...")
+        import time
+        start_time = time.time()
         remote_task = ray.remote(self.runner.run_task)
         futures = {remote_task.remote(task): task for task in tasks}
 
@@ -157,8 +159,9 @@ class ExperimentManager:
                 raise e
 
             done_tasks += 1
-            if done_tasks % max(1, total_tasks // 10) == 0 or done_tasks == total_tasks:
-                print(f"[{done_tasks}/{total_tasks}] tasks completed.")
+            if done_tasks % max(1, total_tasks // 100) == 0 or done_tasks == total_tasks:
+                elapsed_time = time.time() - start_time
+                print(f"[{done_tasks}/{total_tasks}] tasks completed in {elapsed_time:.2f}s.")
 
         # 8. Save results
         print(f"Saving final aggregated results to {output_dir}...")
