@@ -1,8 +1,4 @@
 defaults:
-  - problem: wos
-  - likelihood: inexact_fix
-  - mcmc: two_stage
-  - sampler: tempering
   - experiment: ???
   - _self_
 

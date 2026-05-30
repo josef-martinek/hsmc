@@ -1,7 +1,0 @@
-runner:
-  _target_: experiments.two_stage_mcmc.Test2StageMCMCExperiment
-
-sweep:
-  n_runs: 10
-  budgets: [10, 20, 40, 80]
-  percent_step: 2

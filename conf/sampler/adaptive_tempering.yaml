@@ -1,3 +1,0 @@
-_target_: particles.smc_samplers.AdaptiveTempering
-wastefree: False
-ESSrmin: ${problem.ESS_rmin}

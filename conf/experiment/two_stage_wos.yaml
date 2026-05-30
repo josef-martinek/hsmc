@@ -1,10 +1,4 @@
 # @package _global_
-defaults:
-  - override /problem: null
-  - override /likelihood: null
-  - override /mcmc: null
-  - override /sampler: null
-  - _self_
 
 
 

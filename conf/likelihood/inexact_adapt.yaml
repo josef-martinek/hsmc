@@ -1,1 +1,0 @@
-_target_: ${problem.path}.likelihood_model.IPModelInexactAdapt${problem.likelihood_suffix}
