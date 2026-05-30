@@ -9,6 +9,7 @@ defaults:
 
 
 problem:
+  path: "problem_setup.wos"
   data_noise_var: 3.2
   prior_marg_var: 16.0
   n_particles: 100

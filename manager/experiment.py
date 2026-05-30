@@ -43,6 +43,32 @@ class ExperimentManager:
         self.cfg = cfg
         self.threshold = 5 * 10**6
 
+    def _export_files(self, output_dir):
+        import inspect
+        import shutil
+        import importlib
+        
+        # 1. Export runner simulation file next to setup.yaml
+        try:
+            runner_file = inspect.getfile(self.runner.__class__)
+            shutil.copy(runner_file, output_dir)
+            print(f"Exported runner simulation file: {runner_file} to {output_dir}")
+        except Exception as e:
+            print(f"Could not export runner source file: {e}")
+
+        # 2. Export likelihood model if problem path is provided
+        try:
+            problem_cfg = self.cfg.get("problem", None)
+            if problem_cfg is not None:
+                problem_path = problem_cfg.get("path", None)
+                if problem_path:
+                    module_name = f"{problem_path}.likelihood_model"
+                    likelihood_module = importlib.import_module(module_name)
+                    info.copy_problem_setup(likelihood_module, output_dir)
+                    print(f"Exported likelihood model: {likelihood_module.__file__} to {output_dir}")
+        except Exception as e:
+            print(f"Could not export likelihood model: {e}")
+
     def run(self):
         # If we only want to export the setup configuration
         if self.cfg.get("export_setup_only", False):
@@ -54,15 +80,7 @@ class ExperimentManager:
             with open(setup_file, "w") as f:
                 f.write(OmegaConf.to_yaml(self.cfg, resolve=True))
             
-            # Export runner simulation file next to setup.yaml
-            import inspect
-            import shutil
-            try:
-                runner_file = inspect.getfile(self.runner.__class__)
-                shutil.copy(runner_file, output_dir)
-                print(f"Exported runner simulation file: {runner_file} to {output_dir}")
-            except Exception as e:
-                print(f"Could not export runner source file: {e}")
+            self._export_files(output_dir)
 
             print("export_setup_only is True. Exiting early.")
             return output_dir
@@ -90,15 +108,7 @@ class ExperimentManager:
         with open(setup_file, "w") as f:
             f.write(OmegaConf.to_yaml(self.cfg, resolve=True))
 
-        # Export runner simulation file next to setup.yaml
-        import inspect
-        import shutil
-        try:
-            runner_file = inspect.getfile(self.runner.__class__)
-            shutil.copy(runner_file, output_dir)
-            print(f"Exported runner simulation file: {runner_file} to {output_dir}")
-        except Exception as e:
-            print(f"Could not export runner source file: {e}")
+        self._export_files(output_dir)
 
 
         # 3. Runner Setup
