@@ -57,54 +57,6 @@ def run_smc_problem(problem_name, model_exact_class, param_dim, prior_marg_var, 
     
     return post_mean, post_samp
 
-def run_smc_problem_hydra(problem_name, ground_truth_par):
-    set_seeds()
-    
-    from hydra import initialize, compose
-    from hydra.utils import instantiate
-    
-    # 1. Compose Hydra config with overrides matching the cheap test parameters
-    with initialize(version_base=None, config_path="../conf"):
-        cfg = compose(config_name="config", overrides=[
-            f"problem={problem_name}",
-            "likelihood=inexact_adapt",
-            "mcmc=rw_reg_cal",
-            "sampler=temp_adapt_nsamp_no_rew",
-            "problem.n_particles=20",
-            "problem.len_chain=5"
-        ])
-        
-    # 2. Dynamic import of ModelExact
-    prob_lik = importlib.import_module(f"{cfg.problem.path}.likelihood_model")
-    ModelExact = getattr(prob_lik, cfg.problem.model_exact_class)
-    
-    ground_truth_par = np.asarray(ground_truth_par)
-    prior = dists.StructDist({'param': dists.MvNormal(loc=np.zeros(cfg.problem.param_dim),
-                                                      cov=cfg.problem.prior_marg_var * np.eye(cfg.problem.param_dim))})
-    
-    # Generate synthetic data
-    true_sol = ModelExact.exact_sol(ground_truth_par).reshape(-1, 1)
-    rng_data = np.random.default_rng(seed=81)
-    observed_data = true_sol + rng_data.normal(loc=0., scale=np.sqrt(cfg.problem.data_noise_var), size=true_sol.shape)
-    
-    # 3. Dynamic instantiation using Hydra
-    model = instantiate(cfg.likelihood, prior=prior, data_noise_cov=cfg.problem.data_noise_var, data=observed_data)
-    
-    mcmc_obj = instantiate(cfg.mcmc)
-    move = ssp.AdaptiveMCMCSequence(mcmc=mcmc_obj, adaptive=False, len_chain=cfg.problem.len_chain)
-    
-    fk_tempering = instantiate(cfg.sampler, model=model, move=move, len_chain=cfg.problem.len_chain)
-    
-    my_temp_alg = SMC(fk=fk_tempering, N=cfg.problem.n_particles, ESSrmin=1., verbose=False)
-    my_temp_alg.run()
-    my_temp_alg.setup_auxiliary_weights()
-    my_temp_alg.resample_move()
-    
-    post_samp = my_temp_alg.X.theta['param']
-    post_mean = np.mean(post_samp, axis=0)
-    
-    return post_mean, post_samp
-
 def check_ref(problem_name, post_mean, post_samp, hydra_tag=""):
     data_dir = os.path.join(os.path.dirname(__file__), "data")
     ref_file = os.path.join(data_dir, f"{problem_name}_ref.npz")
@@ -159,16 +111,3 @@ def test_toy_smc():
     )
     check_ref("toy", post_mean, post_samp)
 
-def test_wos_smc_hydra():
-    post_mean, post_samp = run_smc_problem_hydra(
-        problem_name="wos",
-        ground_truth_par=[-3.2077257, -5.29743598]
-    )
-    check_ref("wos", post_mean, post_samp, hydra_tag="Hydra Composed")
-
-def test_toy_smc_hydra():
-    post_mean, post_samp = run_smc_problem_hydra(
-        problem_name="toy",
-        ground_truth_par=np.ones((24, 1))
-    )
-    check_ref("toy", post_mean, post_samp, hydra_tag="Hydra Composed")
