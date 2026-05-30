@@ -18,6 +18,12 @@ class Test2StageMCMCExperiment(ExperimentRunner):
         problem_cfg = cfg.problem
         sweep_cfg = cfg.experiment.sweep
         
+        # Get reference solution parameters from config, with safe fallbacks
+        ref_sol_cfg = cfg.experiment.get("ref_sol", {})
+        ref_len_chain = ref_sol_cfg.get("len_chain", 100)
+        ref_ESSrmin = ref_sol_cfg.get("ESSrmin", 0.9)
+        ref_N = ref_sol_cfg.get("N", 1000)
+
         # Determine the param_dims sweep list, falling back to [problem_cfg.param_dim] if not provided
         if "param_dims" in sweep_cfg:
             param_dims = list(sweep_cfg.param_dims)
@@ -65,7 +71,12 @@ class Test2StageMCMCExperiment(ExperimentRunner):
                 data_noise_cov=problem_cfg.data_noise_var,
                 data=observed_data
             )
-            post_samp_ref_exact = get_ref_sols(model_ex)
+            post_samp_ref_exact = get_ref_sols(
+                model_ex,
+                len_chain=ref_len_chain,
+                ESSrmin=ref_ESSrmin,
+                N=ref_N
+            )
             print(f"Reference solutions computed for param_dim={param_dim}.")
 
             # Put shared variables into Ray object store

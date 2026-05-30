@@ -191,6 +191,11 @@ def run_new():
             "ground_truth_seed": 5
         },
         "experiment": {
+            "ref_sol": {
+                "len_chain": 100,
+                "ESSrmin": 0.9,
+                "N": 1000
+            },
             "sweep": {
                 "n_runs": N_runs,
                 "budgets": budgets.tolist(),
