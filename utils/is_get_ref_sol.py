@@ -2,13 +2,8 @@ import numpy as np
 from particles import smc_samplers as ssp
 from particles.core import SMC
 import core.mcmc as MCMC
-from problem_setup.wos.likelihood_model import IPModelExactHD
 
-def get_ref_sols(prior, data_noise_var, data):
-
-    model_ex = IPModelExactHD(prior=prior, 
-                               data_noise_cov=data_noise_var, 
-                               data=data)
+def get_ref_sols(model_ex):
     mcmc = MCMC.RWRegCal()
     move = ssp.AdaptiveMCMCSequence(mcmc=mcmc, adaptive=False, len_chain=100)
     temp_ex = ssp.AdaptiveTempering(model=model_ex, wastefree=False, ESSrmin=0.9, move=move)

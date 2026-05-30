@@ -10,7 +10,7 @@ from omegaconf import OmegaConf
 
 from manager.experiment import ExperimentRunner
 from utils.is_get_ref_sol import get_ref_sols
-from problem_setup.wos.likelihood_model import WOSHD, IPModelInexactFixHD, IPModelInexactAdaptHD
+from problem_setup.wos.likelihood_model import WOSHD, IPModelInexactFixHD, IPModelInexactAdaptHD, IPModelExactHD
 from core.mcmc import NoisyMetropolisCal, RWRegCal, TwoStageMCMC
 
 class Test2StageMCMCExperiment(ExperimentRunner):
@@ -60,11 +60,12 @@ class Test2StageMCMCExperiment(ExperimentRunner):
 
             # Compute reference solutions once per dimension
             print(f"Computing reference solutions for param_dim={param_dim}...")
-            post_samp_ref_exact = get_ref_sols(
-                prior,
-                problem_cfg.data_noise_var,
-                observed_data
+            model_ex = IPModelExactHD(
+                prior=prior,
+                data_noise_cov=problem_cfg.data_noise_var,
+                data=observed_data
             )
+            post_samp_ref_exact = get_ref_sols(model_ex)
             print(f"Reference solutions computed for param_dim={param_dim}.")
 
             # Put shared variables into Ray object store

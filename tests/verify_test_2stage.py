@@ -60,11 +60,13 @@ def run_legacy():
     )
 
     print("Computing legacy reference solutions...")
-    post_samp_ref_exact = get_ref_sols(
-        prior,
-        sc.data_noise_var,
-        observed_data
+    from problem_setup.wos.likelihood_model import IPModelExactHD
+    model_ex = IPModelExactHD(
+        prior=prior,
+        data_noise_cov=sc.data_noise_var,
+        data=observed_data
     )
+    post_samp_ref_exact = get_ref_sols(model_ex)
 
     print("Computing legacy initial errors...")
     N_init = 100
