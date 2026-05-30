@@ -162,6 +162,8 @@ problem_setup/rayleigh_problem_dsmc/ground_truth/
 
 find_results.py
 outputs
+run*
+slurm*
 
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
