@@ -25,7 +25,7 @@ RESULTS_FOLDER = "data/smc_results_test"
 NUM_CPUS = 8
 SEED = 1111
 resample_move_end = True
-WOS_ref_sol = False # If this is false, then WOS reference solution contains zeros.
+
 
 N_runs = 10
 percent_step = 2
@@ -79,12 +79,10 @@ observed_data = true_sol + rng_data.normal(
 )
 
 print("Computing reference solutions...")
-post_samp_ref_exact, post_samp_ref_wos = get_ref_sols(
+post_samp_ref_exact = get_ref_sols(
     prior,
     sc.data_noise_var,
-    observed_data,
-    sc.Nmin,
-    WOS_ref_sol
+    observed_data
 )
 print("Reference solutions computed.")
 
@@ -158,11 +156,8 @@ print(f"Submitted {len(submitted_refs)} tasks in {time.time() - submit_start:.2f
 # Collect results
 # -----------------------------
 W_ex_by_setup = []
-W_wos_by_setup = []
 Wmax_ex_by_setup = []
-Wmax_wos_by_setup = []
 Ww_ex_by_setup = []
-Ww_wos_by_setup = []
 setups = []
 
 pending = set(submitted_refs)
@@ -180,23 +175,15 @@ while pending:
     N, par_dim = result.shape
 
     W_ex = np.zeros(par_dim)
-    W_wos = np.zeros(par_dim)
 
     for i in range(par_dim):
         W_ex[i] = wasserstein_distance(result[:, i],
                                        post_samp_ref_exact[:, i])
-        W_wos[i] = wasserstein_distance(result[:, i],
-                                        post_samp_ref_wos[:, i])
 
     W_ex_by_setup.append(np.mean(W_ex))
-    W_wos_by_setup.append(np.mean(W_wos))
     Wmax_ex_by_setup.append(np.max(W_ex))
-    Wmax_wos_by_setup.append(np.max(W_wos))
     Ww_ex_by_setup.append(
         np.average(W_ex, weights=1 / np.arange(1, par_dim + 1) ** ModelExact.q)
-    )
-    Ww_wos_by_setup.append(
-        np.average(W_wos, weights=1 / np.arange(1, par_dim + 1) ** ModelExact.q)
     )
     setups.append(setup)
 
@@ -215,16 +202,12 @@ np.savez(
     observed_data=observed_data,
     avg_runtimes_ansamp=np.array(avg_runtimes),
     W_ex_by_setup=np.array(W_ex_by_setup),
-    W_wos_by_setup=np.array(W_wos_by_setup),
     Wmax_ex_by_setup=np.array(Wmax_ex_by_setup),
-    Wmax_wos_by_setup=np.array(Wmax_wos_by_setup),
     Ww_ex_by_setup=np.array(Ww_ex_by_setup),
-    Ww_wos_by_setup=np.array(Ww_wos_by_setup),
     init_Wmean_ex=init_Wmean_ex,
     init_Wmax_ex=init_Wmax_ex,
     init_Ww_ex=init_Ww_ex,
-    setups=np.array(setups),
-    WOS_ref_sol=WOS_ref_sol
+    setups=np.array(setups)
 )
 
 print(f"\nSaved results to {os.path.join(RESULTS_FOLDER, 'smc_results.npz')}")

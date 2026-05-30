@@ -25,14 +25,12 @@ class Test2StageMCMCExperiment(ExperimentRunner):
             param_dims = [problem_cfg.param_dim]
 
         self.param_dims = param_dims
-        self.WOS_ref_sol = cfg.WOS_ref_sol
         self.n_runs = sweep_cfg.n_runs
 
         # Dictionaries to store ray.put refs and reference solutions per param_dim
         self.prior_refs = {}
         self.observed_data_refs = {}
         self.post_samp_refs_exact = {}
-        self.post_samp_refs_wos = {}
         self.observed_datas = {}
 
         for param_dim in param_dims:
@@ -62,12 +60,10 @@ class Test2StageMCMCExperiment(ExperimentRunner):
 
             # Compute reference solutions once per dimension
             print(f"Computing reference solutions for param_dim={param_dim}...")
-            post_samp_ref_exact, post_samp_ref_wos = get_ref_sols(
+            post_samp_ref_exact = get_ref_sols(
                 prior,
                 problem_cfg.data_noise_var,
-                observed_data,
-                problem_cfg.Nmin,
-                self.WOS_ref_sol
+                observed_data
             )
             print(f"Reference solutions computed for param_dim={param_dim}.")
 
@@ -77,13 +73,11 @@ class Test2StageMCMCExperiment(ExperimentRunner):
             
             # Store reference solutions and observed data mapping
             self.post_samp_refs_exact[param_dim] = post_samp_ref_exact
-            self.post_samp_refs_wos[param_dim] = post_samp_ref_wos
             self.observed_datas[param_dim] = observed_data
 
         # Initialize lists for task data collection (Max, Weighted, and Initial errors removed)
         self.setups = []
         self.W_ex_by_setup = []
-        self.W_wos_by_setup = []
         self.raw_particles_by_setup = []
 
     def generate_tasks(self, cfg):
@@ -220,17 +214,13 @@ class Test2StageMCMCExperiment(ExperimentRunner):
         # Compute Wasserstein distances against references (Mean only)
         par_dim = result.shape[1]
         W_ex = np.zeros(par_dim)
-        W_wos = np.zeros(par_dim)
 
         post_ref_exact = self.post_samp_refs_exact[dim]
-        post_ref_wos = self.post_samp_refs_wos[dim]
 
         for i in range(par_dim):
             W_ex[i] = wasserstein_distance(result[:, i], post_ref_exact[:, i])
-            W_wos[i] = wasserstein_distance(result[:, i], post_ref_wos[:, i])
 
         self.W_ex_by_setup.append(np.mean(W_ex))
-        self.W_wos_by_setup.append(np.mean(W_wos))
 
         # Store raw particles if Regime A (raw_particles)
         if storage_mode == "raw_particles":
@@ -242,9 +232,7 @@ class Test2StageMCMCExperiment(ExperimentRunner):
             "param_dims": np.array(self.param_dims),
             "observed_datas": self.observed_datas,
             "W_ex_by_setup": np.array(self.W_ex_by_setup),
-            "W_wos_by_setup": np.array(self.W_wos_by_setup),
-            "setups": np.array(self.setups),
-            "WOS_ref_sol": self.WOS_ref_sol
+            "setups": np.array(self.setups)
         }
 
         # If raw particles were stored, save them compressed

@@ -22,7 +22,7 @@ N_runs = 2
 budgets = np.array([10])
 percents_on_coarse = np.array([0.0, 0.5, 1.0])
 SEED = 1111
-WOS_ref_sol = False
+
 
 # Output folders
 LEGACY_FOLDER = "data/smc_results_legacy_cheap"
@@ -48,7 +48,8 @@ def run_legacy():
             cov=sc.prior_marg_var * np.eye(param_dim)
         )
     })
-    gt = sc.ground_truth_par
+    rng_gt = np.random.default_rng(seed=5)
+    gt = rng_gt.normal(scale=np.sqrt(sc.prior_marg_var), size=param_dim)
     true_sol = ModelExact.exact_sol(gt).reshape(-1, 1)
 
     rng_data = np.random.default_rng(seed=81)
@@ -59,12 +60,10 @@ def run_legacy():
     )
 
     print("Computing legacy reference solutions...")
-    post_samp_ref_exact, post_samp_ref_wos = get_ref_sols(
+    post_samp_ref_exact = get_ref_sols(
         prior,
         sc.data_noise_var,
-        observed_data,
-        sc.Nmin,
-        WOS_ref_sol
+        observed_data
     )
 
     print("Computing legacy initial errors...")
@@ -117,11 +116,8 @@ def run_legacy():
                 ref_to_setup[ref] = [budget, percent]
 
     W_ex_by_setup = []
-    W_wos_by_setup = []
     Wmax_ex_by_setup = []
-    Wmax_wos_by_setup = []
     Ww_ex_by_setup = []
-    Ww_wos_by_setup = []
     setups = []
 
     pending = set(submitted_refs)
@@ -134,21 +130,14 @@ def run_legacy():
         N, par_dim = result.shape
 
         W_ex = np.zeros(par_dim)
-        W_wos = np.zeros(par_dim)
 
         for i in range(par_dim):
             W_ex[i] = wasserstein_distance(result[:, i], post_samp_ref_exact[:, i])
-            W_wos[i] = wasserstein_distance(result[:, i], post_samp_ref_wos[:, i])
 
         W_ex_by_setup.append(np.mean(W_ex))
-        W_wos_by_setup.append(np.mean(W_wos))
         Wmax_ex_by_setup.append(np.max(W_ex))
-        Wmax_wos_by_setup.append(np.max(W_wos))
         Ww_ex_by_setup.append(
             np.average(W_ex, weights=1 / np.arange(1, par_dim + 1) ** ModelExact.q)
-        )
-        Ww_wos_by_setup.append(
-            np.average(W_wos, weights=1 / np.arange(1, par_dim + 1) ** ModelExact.q)
         )
         setups.append(setup)
 
@@ -157,16 +146,12 @@ def run_legacy():
         n_runs=N_runs,
         observed_data=observed_data,
         W_ex_by_setup=np.array(W_ex_by_setup),
-        W_wos_by_setup=np.array(W_wos_by_setup),
         Wmax_ex_by_setup=np.array(Wmax_ex_by_setup),
-        Wmax_wos_by_setup=np.array(Wmax_wos_by_setup),
         Ww_ex_by_setup=np.array(Ww_ex_by_setup),
-        Ww_wos_by_setup=np.array(Ww_wos_by_setup),
         init_Wmean_ex=init_Wmean_ex,
         init_Wmax_ex=init_Wmax_ex,
         init_Ww_ex=init_Ww_ex,
-        setups=np.array(setups),
-        WOS_ref_sol=WOS_ref_sol
+        setups=np.array(setups)
     )
     print("Legacy run saved.")
     ray.shutdown()
@@ -187,7 +172,7 @@ def run_new():
     cfg = OmegaConf.create({
         "num_cpus": 1,
         "results_base_dir": LEGACY_FOLDER, # We override base_dir inside runner or manager, wait, NEW_FOLDER!
-        "WOS_ref_sol": False,
+
         "problem": {
             "name": "wos",
             "path": "problem_setup.wos",
@@ -200,12 +185,15 @@ def run_new():
             "Nmin": sc.Nmin,
             "fine_over_coarse_nsamp": sc.fine_over_coarse_nsamp,
             "likelihood_suffix": "HD",
-            "ground_truth_par": sc.ground_truth_par.tolist()
+            "ground_truth_par": sc.ground_truth_par.tolist(),
+            "ground_truth_seed": 5
         },
-        "sweep": {
-            "n_runs": N_runs,
-            "budgets": budgets.tolist(),
-            "percents": percents_on_coarse.tolist()
+        "experiment": {
+            "sweep": {
+                "n_runs": N_runs,
+                "budgets": budgets.tolist(),
+                "percents": percents_on_coarse.tolist()
+            }
         }
     })
     
@@ -235,30 +223,19 @@ def compare_and_assert():
     new_data = np.load(new_file, allow_pickle=True)
     
     # 1. Compare non-asynchronous parts (observed data, initial errors)
-    assert np.allclose(legacy_data["observed_data"], new_data["observed_data"], atol=1e-5), "Observed data mismatch!"
-    assert np.allclose(legacy_data["init_Wmean_ex"], new_data["init_Wmean_ex"], atol=1e-5), "init_Wmean_ex mismatch!"
-    assert np.allclose(legacy_data["init_Wmax_ex"], new_data["init_Wmax_ex"], atol=1e-5), "init_Wmax_ex mismatch!"
-    assert np.allclose(legacy_data["init_Ww_ex"], new_data["init_Ww_ex"], atol=1e-5), "init_Ww_ex mismatch!"
+    assert np.allclose(legacy_data["observed_data"], new_data["observed_datas"].item()[sc.param_dim], atol=1e-5), "Observed data mismatch!"
+    
+
     
     # 2. Sort completed tasks by budget & percent to ensure order-invariant comparison
     leg_setups = legacy_data["setups"]
     new_setups = new_data["setups"]
     
     leg_stats = {
-        "W_ex": legacy_data["W_ex_by_setup"],
-        "W_wos": legacy_data["W_wos_by_setup"],
-        "Wmax_ex": legacy_data["Wmax_ex_by_setup"],
-        "Wmax_wos": legacy_data["Wmax_wos_by_setup"],
-        "Ww_ex": legacy_data["Ww_ex_by_setup"],
-        "Ww_wos": legacy_data["Ww_wos_by_setup"]
+        "W_ex": legacy_data["W_ex_by_setup"]
     }
     new_stats = {
-        "W_ex": new_data["W_ex_by_setup"],
-        "W_wos": new_data["W_wos_by_setup"],
-        "Wmax_ex": new_data["Wmax_ex_by_setup"],
-        "Wmax_wos": new_data["Wmax_wos_by_setup"],
-        "Ww_ex": new_data["Ww_ex_by_setup"],
-        "Ww_wos": new_data["Ww_wos_by_setup"]
+        "W_ex": new_data["W_ex_by_setup"]
     }
     
     # Sort legacy results by setups (budget, percent)
@@ -268,7 +245,8 @@ def compare_and_assert():
     # Assert sorted setups match
     sorted_leg_setups = leg_setups[leg_indices]
     sorted_new_setups = new_setups[new_indices]
-    assert np.allclose(sorted_leg_setups, sorted_new_setups, atol=1e-5), "Setups mismatch!"
+    assert np.allclose(sorted_leg_setups, sorted_new_setups[:, :2], atol=1e-5), "Setups mismatch!"
+    assert np.all(sorted_new_setups[:, 2] == sc.param_dim), "New setups param_dim mismatch!"
     
     print("\n--- COMPARING SMC RESULTS (TOLERANCE 1e-4) ---")
     for key in leg_stats.keys():

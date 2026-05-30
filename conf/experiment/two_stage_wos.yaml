@@ -6,7 +6,7 @@ defaults:
   - override /sampler: null
   - _self_
 
-WOS_ref_sol: false
+
 
 problem:
   data_noise_var: 3.2
