@@ -3,7 +3,7 @@ defaults:
   - likelihood: inexact_fix
   - mcmc: two_stage
   - sampler: tempering
-  - experiment: two_stage
+  - experiment: ???
   - _self_
 
 num_cpus: null

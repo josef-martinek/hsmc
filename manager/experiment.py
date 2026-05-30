@@ -115,16 +115,19 @@ class ExperimentManager:
         problem_cfg = self.cfg.problem
         num_particles = problem_cfg.n_particles
         
-        # Determine param_dim robustly (it can be omitted in configuration sweeps)
+        # Determine total_floats robustly
         param_dim = problem_cfg.get("param_dim", None)
-        if param_dim is None:
+        if param_dim is not None:
+            total_floats = num_tasks * num_particles * param_dim
+        else:
             sweep_cfg = self.cfg.get("experiment", {}).get("sweep", {})
             if "param_dims" in sweep_cfg:
-                param_dim = max(sweep_cfg.param_dims)
+                param_dims = sweep_cfg.param_dims
+                tasks_per_dim = num_tasks / len(param_dims)
+                total_floats = tasks_per_dim * num_particles * sum(param_dims)
             else:
-                param_dim = 1
-                
-        total_floats = num_tasks * num_particles * param_dim
+                print("Warning: no parameter dimensions have been specified on the input, cost cannot be estimated. Assuming cost is infty.")
+                total_floats = float('inf')
 
         if total_floats <= self.threshold:
             storage_mode = "raw_particles"
@@ -136,6 +139,8 @@ class ExperimentManager:
         # 6. Dispatch Tasks
         # Dynamic Ray wrapping of the static run_task method
         print("Dispatching tasks to Ray cluster...")
+        import time
+        start_time = time.time()
         remote_task = ray.remote(self.runner.run_task)
         futures = {remote_task.remote(task): task for task in tasks}
 
@@ -157,8 +162,9 @@ class ExperimentManager:
                 raise e
 
             done_tasks += 1
-            if done_tasks % max(1, total_tasks // 10) == 0 or done_tasks == total_tasks:
-                print(f"[{done_tasks}/{total_tasks}] tasks completed.")
+            if done_tasks % max(1, total_tasks // 100) == 0 or done_tasks == total_tasks:
+                elapsed_time = time.time() - start_time
+                print(f"[{done_tasks}/{total_tasks}] tasks completed in {elapsed_time:.2f}s.")
 
         # 8. Save results
         print(f"Saving final aggregated results to {output_dir}...")
