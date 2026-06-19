@@ -19,14 +19,6 @@ from problem_setup.wos.likelihood_model import IPModelExactHD as LikelihoodModel
 # from problem_setup.wos.likelihood_model import IPModelInexactAdaptHD as LikelihoodModel
 # from problem_setup.wos.likelihood_model import IPModelInexactFixHD as LikelihoodModel
 
-# -- Option 2: Compact Problem --
-# from problem_setup.compact_problem.problem_parameters import SamplerConfig as sc
-# from problem_setup.compact_problem.likelihood_model import CompactModel as ModelExact
-# from problem_setup.compact_problem.likelihood_model import IPModelExactHD as LikelihoodModel
-# To use inexact likelihood for Compact, comment the line above and uncomment one of these:
-# from problem_setup.compact_problem.likelihood_model import IPModelInexactAdaptHD as LikelihoodModel
-# from problem_setup.compact_problem.likelihood_model import IPModelInexactFixHD as LikelihoodModel
-
 # -- Option 3: Toy Problem --
 # from problem_setup.toy_problem.problem_parameters import SamplerConfig as sc
 # from problem_setup.toy_problem.likelihood_model import MatVecModel as ModelExact

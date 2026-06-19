@@ -13,13 +13,12 @@ def naive_rejection_sampling(params, nsamp, R, operator, seed=42):
     u_exact = params @ operator.T
     
     # Isotropic variance
-    norms = np.linalg.norm(params, axis=1)
-    variances = (2.0 + np.sin(norms)) / nsamp
+    variances = CompactModel.base_variance / nsamp
     stds = np.sqrt(variances)
     
     e_out = np.zeros((N_batch, m))
     for i in range(N_batch):
-        sigma = stds[i]
+        sigma = stds
         while True:
             # Draw standard normal and scale by isotropic std
             e = np.random.normal(loc=0.0, scale=sigma, size=m)
