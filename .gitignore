@@ -162,7 +162,7 @@ problem_setup/rayleigh_problem_dsmc/ground_truth/
 
 find_results.py
 outputs
-run*
+/run*
 slurm*
 
 # PyCharm
