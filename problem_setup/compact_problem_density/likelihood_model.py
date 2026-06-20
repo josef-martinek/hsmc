@@ -55,7 +55,7 @@ class IPModelInexactAdaptHDDensity(LikelihoodNoiseTrackingMixin, IPModelInexactA
     def get_noise_realization(self, param, model_prediction):
         return model_prediction.T - CompactModel.exact_sol(param)
 
-class IPModelInexactHDDensity(LikelihoodNoiseTrackingMixin, IPModelInexactFixHD):
+class IPModelInexactFixHDDensity(LikelihoodNoiseTrackingMixin, IPModelInexactFixHD):
     """
     Fixed inexact model HD that tracks the internal noise realization e.
     """

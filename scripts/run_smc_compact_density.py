@@ -13,7 +13,10 @@ from particles.core import SMC
 
 from problem_setup.compact_problem_density.problem_parameters import SamplerConfig as sc
 from problem_setup.compact_problem_density.likelihood_model import CompactModel as ModelExact
+# Adaptive formulation (used with TempAdaptNsampNoRew)
 from problem_setup.compact_problem_density.likelihood_model import IPModelInexactAdaptHDDensity as LikelihoodModel
+# Fixed formulation (used with AdaptiveTempering)
+# from problem_setup.compact_problem_density.likelihood_model import IPModelInexactFixHDDensity as LikelihoodModel
 
 from problem_setup.compact_problem_density.kernel_ratio import KernelRatioEvaluator
 
@@ -58,6 +61,7 @@ else:
 # RUN SETTINGS
 # ==============================================================================
 resample_move_end = True
+save_data = False
 
 if __name__ == "__main__":
     print("==================================================")
@@ -146,7 +150,66 @@ if __name__ == "__main__":
     print("Posterior mean:", post_mean)
     
     # Save output data
-    os.makedirs("data/experiment", exist_ok=True)
-    np.savez("data/experiment/post_mean_density.npz", post_mean=post_mean)
-    np.savez("data/experiment/post_samp_density.npz", post_samp=post_samp)
-    print("Results saved to data/experiment/")
+    if save_data:
+        os.makedirs("data/experiment", exist_ok=True)
+        np.savez("data/experiment/post_mean_density.npz", post_mean=post_mean)
+        np.savez("data/experiment/post_samp_density.npz", post_samp=post_samp)
+        print("Results saved to data/experiment/")
+        
+    # Plot results
+    if param_dim == 1:
+        import scipy.stats as stats
+        from matplotlib import pyplot as plt
+        import seaborn as sb
+
+        # Define prior distribution
+        prior_dist = stats.uniform(loc=a, scale=b-a)
+
+        # Plot results
+        fig, ax = plt.subplots(figsize=(6, 5))
+
+        # Plot histogram of sampled parameters
+        if resample_move_end:
+            sb.histplot(x=post_samp.flatten(), stat='density', label='SMC Samples', ax=ax)
+        else:
+            sb.histplot(x=post_samp.flatten(), weights=my_temp_alg.W, stat='density', label='SMC Samples', ax=ax)
+
+        # Plot prior distribution
+        x_vals = np.linspace(a - 0.5, b + 0.5, 1000)
+        ax.plot(x_vals, prior_dist.pdf(x_vals), label='Prior', linestyle='dashed', color='black')
+
+        ax.set_xlabel('param')
+        ax.legend()
+        
+        # Save the plot
+        if save_data:
+            os.makedirs("plots", exist_ok=True)
+            plt.savefig("plots/posterior_distribution_density.png", dpi=300, bbox_inches='tight')
+            print("Plot saved to plots/posterior_distribution_density.png")
+        plt.show()
+    else:
+        import pandas as pd
+        import seaborn as sb
+        from matplotlib import pyplot as plt
+
+        # Create a DataFrame from the posterior samples
+        columns = [f'param_{i+1}' for i in range(param_dim)]
+        df = pd.DataFrame(post_samp, columns=columns)
+        
+        # Plot using seaborn pairplot
+        grid = sb.pairplot(df, diag_kind='kde', plot_kws={'alpha': 0.6})
+        
+        # Denote the ground truth with a red point/line
+        for i in range(param_dim):
+            for j in range(param_dim):
+                ax = grid.axes[i, j]
+                if i != j:
+                    ax.plot(ground_truth_par[j], ground_truth_par[i], 'ro', markersize=8, label='Ground Truth' if (i == 0 and j == 1) else "")
+                else:
+                    ax.axvline(ground_truth_par[i], color='red', linestyle='--', linewidth=2, label='Ground Truth' if i == 0 else "")
+        
+        if save_data:
+            os.makedirs("plots", exist_ok=True)
+            plt.savefig("plots/posterior_pairplot_density.png", dpi=300, bbox_inches='tight')
+            print("Plot saved to plots/posterior_pairplot_density.png")
+        plt.show()
