@@ -16,7 +16,10 @@ class SamplerConfig:
     ar_tol = 0.35
     Nmin = 32
 
-    nsamp = 32
+    N_max = 64.0
+    gamma_nsamp = 1.25
+    gamma_temp = 1.5
+
     fine_over_coarse_nsamp = None
     coarse_chain_scale = None
 

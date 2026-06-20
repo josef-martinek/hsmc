@@ -134,8 +134,13 @@ if __name__ == "__main__":
     move = AdaptiveMCMCSequence(mcmc=mcmc_obj, adaptive=False, len_chain=len_chain)
     
     # Fixed schedules for TempNsampNoRew
-    exponents_sched = np.linspace(0, 1, sc.n_temp_steps)
-    nsamp_sched = np.full(sc.n_temp_steps + 1, sc.nsamp)
+    # 1. Nsamp schedule: go backwards from N_max using float scaling
+    nsamp_sched = np.zeros(sc.n_temp_steps + 1)
+    for t in range(sc.n_temp_steps, -1, -1):
+        nsamp_sched[t] = sc.N_max / (sc.gamma_nsamp ** (sc.n_temp_steps - t))
+        
+    # 2. Exponents schedule (Shifted Geometric Growth)
+    exponents_sched = np.array([(sc.gamma_temp**t - 1) / (sc.gamma_temp**sc.n_temp_steps - 1) for t in range(1, sc.n_temp_steps + 1)])
     
     # ==============================================================================
     # SAMPLER INSTANTIATION (Uncomment ONE)
