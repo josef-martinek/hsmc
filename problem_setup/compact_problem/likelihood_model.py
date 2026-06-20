@@ -88,7 +88,7 @@ class IPModelExact(IPModel1D):
 class IPModelInexactFix(IPModel1D):
     def __init__(self, prior, data_noise_cov, data, nsamp):
         super().__init__(prior, data_noise_cov, data)
-        self._nsamp = round(nsamp)
+        self._nsamp = nsamp
 
     def _evaluate_model(self, param):
         # param shape: (N,)
@@ -130,7 +130,7 @@ class IPModelInexactAdapt(IPModel1D):
 
     @nsamp.setter
     def nsamp(self, value):
-        self._nsamp = round(value)
+        self._nsamp = value
 
 
 class IPModelExactHD(IPModelHD):
@@ -154,7 +154,7 @@ class IPModelExactHD(IPModelHD):
 class IPModelInexactFixHD(IPModelHD):
     def __init__(self, prior, data_noise_cov, data, nsamp):
         super().__init__(prior, data_noise_cov, data)
-        self._nsamp = round(nsamp)
+        self._nsamp = nsamp
 
     def _evaluate_model(self, param):
         # param shape: (N, d)
@@ -194,4 +194,4 @@ class IPModelInexactAdaptHD(IPModelHD):
 
     @nsamp.setter
     def nsamp(self, value):
-        self._nsamp = round(value)
+        self._nsamp = value
