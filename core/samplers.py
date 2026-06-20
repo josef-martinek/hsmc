@@ -83,8 +83,8 @@ class TempNsampNoRew(Tempering):
 
     def logG(self, t, xp, x):
         x.shared['exponents'].append(self.exponents[t])
-        x.shared["solver_nsamp"].append(self.solver_nsamp[t])
-        self.solver_nsamp_last.append(self.solver_nsamp[t])
+        x.shared["solver_nsamp"].append(self.solver_nsamp[t+1])
+        self.solver_nsamp_last.append(self.solver_nsamp[t+1])
 
         return self.logG_tempering(x, self.deltas[t])
     

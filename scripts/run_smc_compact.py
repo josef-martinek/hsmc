@@ -14,9 +14,9 @@ from particles.core import SMC
 from problem_setup.compact_problem.problem_parameters import SamplerConfig as sc
 from problem_setup.compact_problem.likelihood_model import CompactModel as ModelExact
 # Adaptive formulation (used with TempAdaptNsampNoRew and TempNsampNoRew)
-from problem_setup.compact_problem.likelihood_model import IPModelInexactAdaptHD as LikelihoodModel
+from problem_setup.compact_problem.likelihood_model import IPModelInexactAdaptHD
 # Fixed formulation (used with AdaptiveTempering)
-# from problem_setup.compact_problem.likelihood_model import IPModelInexactFixHD as LikelihoodModel
+from problem_setup.compact_problem.likelihood_model import IPModelInexactFixHD
 
 
 # ==============================================================================
@@ -24,14 +24,11 @@ from problem_setup.compact_problem.likelihood_model import IPModelInexactAdaptHD
 # ==============================================================================
 
 # MCMC mutations (available options: RWRegCal, RWUnc, NoisyMetropolisCal)
-from core.mcmc import RWRegCal as MCMCClass
-# from core.mcmc import RWUnc as MCMCClass
-# from core.mcmc import NoisyMetropolisCal as MCMCClass
+from core.mcmc import NoisyMetropolisCal as MCMCClass
 
-# Samplers (available options: AdaptiveTempering, TempAdaptNsampNoRew, TempNsampNoRew)
-# from particles.smc_samplers import AdaptiveTempering as SamplerClass
-# from core.samplers import TempAdaptNsampNoRew as SamplerClass
-from core.samplers import TempNsampNoRew as SamplerClass
+from particles.smc_samplers import AdaptiveTempering
+from core.samplers import TempAdaptNsampNoRew
+from core.samplers import TempNsampNoRew
 
 # ==============================================================================
 # RUN SETTINGS
@@ -69,6 +66,15 @@ if __name__ == "__main__":
     observed_data = true_sol + rng_data.normal(loc=0., scale=np.sqrt(sc.data_noise_var), size=true_sol.shape)
     print(f"Observed data generated using exact solver.")
 
+    # --- CHOOSE LIKELIHOOD MODEL ---
+    # LikelihoodModel = IPModelInexactFixHD
+    LikelihoodModel = IPModelInexactAdaptHD
+    
+    # --- CHOOSE SAMPLER ---
+    # SamplerClass = AdaptiveTempering
+    # SamplerClass = TempAdaptNsampNoRew
+    SamplerClass = TempNsampNoRew
+
     # 4. LIKELIHOOD MODEL INSTANTIATION
     if "Fix" in LikelihoodModel.__name__:
         model = LikelihoodModel(
@@ -88,12 +94,9 @@ if __name__ == "__main__":
     mcmc_obj = MCMCClass()
     move = AdaptiveMCMCSequence(mcmc=mcmc_obj, adaptive=False, len_chain=len_chain)
     
-    from core.samplers import TempAdaptNsampNoRew, TempNsampNoRew
-    from particles.smc_samplers import AdaptiveTempering
-    
     # Fixed schedules for TempNsampNoRew
-    exponents_sched = np.linspace(0, 1, sc.len_chain)
-    nsamp_sched = np.full(sc.len_chain, sc.nsamp)
+    exponents_sched = np.linspace(0, 1, sc.n_temp_steps)
+    nsamp_sched = np.full(sc.n_temp_steps + 1, sc.nsamp)
     
     # ==============================================================================
     # SAMPLER INSTANTIATION (Uncomment ONE)

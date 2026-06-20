@@ -11,6 +11,7 @@ class SamplerConfig:
 
     n_particles = 1000
     len_chain = 5
+    n_temp_steps = 10
     ESS_rmin = 0.7
     ar_tol = 0.35
     Nmin = 32

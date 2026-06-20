@@ -13,10 +13,10 @@ from particles.core import SMC
 
 from problem_setup.compact_problem_density.problem_parameters import SamplerConfig as sc
 from problem_setup.compact_problem_density.likelihood_model import CompactModel as ModelExact
-# Adaptive formulation (used with TempAdaptNsampNoRew)
-from problem_setup.compact_problem_density.likelihood_model import IPModelInexactAdaptHDDensity as LikelihoodModel
+# Adaptive formulation (used with TempAdaptNsampNoRew and TempNsampNoRew)
+from problem_setup.compact_problem_density.likelihood_model import IPModelInexactAdaptHDDensity
 # Fixed formulation (used with AdaptiveTempering)
-# from problem_setup.compact_problem_density.likelihood_model import IPModelInexactFixHDDensity as LikelihoodModel
+from problem_setup.compact_problem_density.likelihood_model import IPModelInexactFixHDDensity
 
 from problem_setup.compact_problem_density.kernel_ratio import KernelRatioEvaluator
 
@@ -25,14 +25,11 @@ from problem_setup.compact_problem_density.kernel_ratio import KernelRatioEvalua
 # ==============================================================================
 
 # MCMC mutations (available options: RWRegCal, RWUnc, NoisyMetropolisCal)
-from core.mcmc import RWRegCal as MCMCClass
-# from core.mcmc import RWUnc as MCMCClass
-# from core.mcmc import NoisyMetropolisCal as MCMCClass
+from core.mcmc import NoisyMetropolisCal as MCMCClass
 
-# Samplers (available options: AdaptiveTempering, TempAdaptNsampNoRew, TempNsampNoRew)
-# from particles.smc_samplers import AdaptiveTempering as SamplerClass
-# from core.samplers import TempAdaptNsampNoRew as SamplerClass
-from core.samplers import TempNsampNoRew as SamplerClass
+from particles.smc_samplers import AdaptiveTempering
+from core.samplers import TempAdaptNsampNoRew
+from core.samplers import TempNsampNoRew
 
 # Define the mixin to apply the kernel ratio weight
 class KernelReweightingMixin:
@@ -53,11 +50,7 @@ class KernelReweightingMixin:
             
         return dl
 
-if SamplerClass.__name__ == "TempAdaptNsampNoRew":
-    class SamplerClassToUse(KernelReweightingMixin, SamplerClass):
-        pass
-else:
-    SamplerClassToUse = SamplerClass
+
 
 # ==============================================================================
 # RUN SETTINGS
@@ -103,6 +96,21 @@ if __name__ == "__main__":
         'e': dists.MvNormal(loc=np.zeros(m_data), cov=np.eye(m_data))
     })
 
+    # --- CHOOSE LIKELIHOOD MODEL ---
+    # LikelihoodModel = IPModelInexactFixHDDensity
+    LikelihoodModel = IPModelInexactAdaptHDDensity
+    
+    # --- CHOOSE SAMPLER ---
+    # SamplerClass = AdaptiveTempering
+    # SamplerClass = TempAdaptNsampNoRew
+    SamplerClass = TempNsampNoRew
+
+    if SamplerClass.__name__ in ["TempAdaptNsampNoRew", "TempNsampNoRew"]:
+        class SamplerClassToUse(KernelReweightingMixin, SamplerClass):
+            pass
+    else:
+        SamplerClassToUse = SamplerClass
+
     # 4. LIKELIHOOD MODEL INSTANTIATION
     if "Fix" in LikelihoodModel.__name__:
         model = LikelihoodModel(
@@ -125,12 +133,9 @@ if __name__ == "__main__":
     mcmc_obj = MCMCClass()
     move = AdaptiveMCMCSequence(mcmc=mcmc_obj, adaptive=False, len_chain=len_chain)
     
-    from core.samplers import TempAdaptNsampNoRew, TempNsampNoRew
-    from particles.smc_samplers import AdaptiveTempering
-    
     # Fixed schedules for TempNsampNoRew
-    exponents_sched = np.linspace(0, 1, sc.len_chain)
-    nsamp_sched = np.full(sc.len_chain, sc.nsamp)
+    exponents_sched = np.linspace(0, 1, sc.n_temp_steps)
+    nsamp_sched = np.full(sc.n_temp_steps + 1, sc.nsamp)
     
     # ==============================================================================
     # SAMPLER INSTANTIATION (Uncomment ONE)
