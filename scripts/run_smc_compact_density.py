@@ -29,9 +29,10 @@ from core.mcmc import RWRegCal as MCMCClass
 # from core.mcmc import RWUnc as MCMCClass
 # from core.mcmc import NoisyMetropolisCal as MCMCClass
 
-# Samplers (available options: AdaptiveTempering, TempAdaptNsampNoRew, Tempering)
+# Samplers (available options: AdaptiveTempering, TempAdaptNsampNoRew, TempNsampNoRew)
 # from particles.smc_samplers import AdaptiveTempering as SamplerClass
-from core.samplers import TempAdaptNsampNoRew as SamplerClass
+# from core.samplers import TempAdaptNsampNoRew as SamplerClass
+from core.samplers import TempNsampNoRew as SamplerClass
 
 # Define the mixin to apply the kernel ratio weight
 class KernelReweightingMixin:
@@ -40,9 +41,10 @@ class KernelReweightingMixin:
         dl = super().logG_tempering(x, delta)
         
         # 2. Add our custom kernel ratio if nsamp changed
-        if len(self.solver_nsamp) >= 2 and self.solver_nsamp[-1] != self.solver_nsamp[-2]:
-            S_prev = self.solver_nsamp[-2]
-            S_curr = self.solver_nsamp[-1]
+        shared_nsamp = x.shared["solver_nsamp"]
+        if len(shared_nsamp) >= 2 and shared_nsamp[-1] != shared_nsamp[-2]:
+            S_prev = shared_nsamp[-2]
+            S_curr = shared_nsamp[-1]
             e_particles = x.theta['e']
             log_ratio = self.model.evaluator.evaluate_log_ratio(e_particles, S_prev, S_curr)
             
@@ -123,15 +125,26 @@ if __name__ == "__main__":
     mcmc_obj = MCMCClass()
     move = AdaptiveMCMCSequence(mcmc=mcmc_obj, adaptive=False, len_chain=len_chain)
     
-    from core.samplers import TempAdaptNsampNoRew
+    from core.samplers import TempAdaptNsampNoRew, TempNsampNoRew
     from particles.smc_samplers import AdaptiveTempering
     
-    if issubclass(SamplerClassToUse, TempAdaptNsampNoRew):
-        fk_tempering = SamplerClassToUse(model=model, move=move, wastefree=False, ESSrmin=ESS_rmin, Nmin=Nmin, ar_tol=ar_tol, len_chain=len_chain)
-    elif issubclass(SamplerClassToUse, AdaptiveTempering):
-        fk_tempering = SamplerClassToUse(model=model, move=move, wastefree=False, ESSrmin=ESS_rmin, len_chain=len_chain)
-    else:  # Standard Tempering or others
-        fk_tempering = SamplerClassToUse(model=model, move=move, len_chain=len_chain)
+    # Fixed schedules for TempNsampNoRew
+    exponents_sched = np.linspace(0, 1, sc.len_chain)
+    nsamp_sched = np.full(sc.len_chain, sc.nsamp)
+    
+    # ==============================================================================
+    # SAMPLER INSTANTIATION (Uncomment ONE)
+    # ==============================================================================
+    
+    # 1. Adaptive Tempering (Fixed nsamp)
+    # fk_tempering = SamplerClassToUse(model=model, move=move, wastefree=False, ESSrmin=ESS_rmin, len_chain=len_chain)
+    
+    # 2. TempAdaptNsampNoRew (Adaptive nsamp)
+    # fk_tempering = SamplerClassToUse(model=model, move=move, wastefree=False, ESSrmin=ESS_rmin, Nmin=Nmin, ar_tol=ar_tol, len_chain=len_chain)
+    
+    # 3. TempNsampNoRew (Fixed tempering and fixed nsamp schedules)
+    fk_tempering = SamplerClassToUse(model=model, move=move, wastefree=False, len_chain=sc.len_chain, exponents=exponents_sched, Nsamps=nsamp_sched)
+
 
     # 6. RUN SIMULATION
     my_temp_alg = SMC(fk=fk_tempering, N=n_particles, ESSrmin=1., verbose=True)

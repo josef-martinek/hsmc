@@ -1,4 +1,4 @@
-from particles.smc_samplers import AdaptiveTempering, next_annealing_epn
+from particles.smc_samplers import AdaptiveTempering, next_annealing_epn, Tempering
 import numpy as np
 from particles.smc_samplers import ThetaParticles
 
@@ -56,6 +56,54 @@ class TempAdaptNsampNoRew(AdaptiveTempering):
         def func(x):
             x.lprior = self.model.prior.logpdf(x.theta)
             x.llik = self.model.loglik(x.theta, self.solver_nsamp[-1])
+            if epn > 0.0:
+                x.lpost = x.lprior + epn * x.llik
+            else:  # avoid having 0 x Nan
+                x.lpost = x.lprior.copy()
+
+        return func
+
+class TempNsampNoRew(Tempering):
+    """
+    Fixed Tempering SMC sampler with a fixed schedule for solver sample size.
+    Does not use importance reweighting for likelihood changes.
+    """
+    def __init__(self, model=None, wastefree=False, len_chain=10, move=None, exponents=None, Nsamps=None):
+        super().__init__(model, wastefree, len_chain, move, exponents)
+        self.solver_nsamp = Nsamps
+        self.solver_nsamp_last = [Nsamps[0]]
+
+    def _M0(self, N):
+        x0 = ThetaParticles(theta=self.model.prior.rvs(size=N))
+        x0.shared["exponents"] = [0.0]
+        x0.shared["path_sampling"] = [0.0]
+        x0.shared["solver_nsamp"] = [self.solver_nsamp[0]]
+        self.current_target(0.0)(x0)
+        return x0
+
+    def logG(self, t, xp, x):
+        x.shared['exponents'].append(self.exponents[t])
+        x.shared["solver_nsamp"].append(self.solver_nsamp[t])
+        self.solver_nsamp_last.append(self.solver_nsamp[t])
+
+        return self.logG_tempering(x, self.deltas[t])
+    
+    def logG_tempering(self, x, delta):
+        dl = delta * x.llik
+        x.lpost += dl
+
+        dl2 = 0
+        if  x.shared["solver_nsamp"][-1] !=  x.shared["solver_nsamp"][-2]:
+            llik_new = self.model.loglik(x.theta, x.shared["solver_nsamp"][-1])
+            dl2 = x.shared['exponents'][-1] * (llik_new - x.llik)
+            x.lpost += dl2
+            x.llik = llik_new
+        return dl
+    
+    def current_target(self, epn):
+        def func(x):
+            x.lprior = self.model.prior.logpdf(x.theta)
+            x.llik = self.model.loglik(x.theta, self.solver_nsamp_last[-1])
             if epn > 0.0:
                 x.lpost = x.lprior + epn * x.llik
             else:  # avoid having 0 x Nan

@@ -13,10 +13,11 @@ from particles.core import SMC
 
 from problem_setup.compact_problem.problem_parameters import SamplerConfig as sc
 from problem_setup.compact_problem.likelihood_model import CompactModel as ModelExact
-# from problem_setup.compact_problem.likelihood_model import IPModelExactHD as LikelihoodModel
-# To use inexact likelihood for Compact, comment the line above and uncomment one of these:
-# from problem_setup.compact_problem.likelihood_model import IPModelInexactAdaptHD as LikelihoodModel
-from problem_setup.compact_problem.likelihood_model import IPModelInexactFixHD as LikelihoodModel
+# Adaptive formulation (used with TempAdaptNsampNoRew and TempNsampNoRew)
+from problem_setup.compact_problem.likelihood_model import IPModelInexactAdaptHD as LikelihoodModel
+# Fixed formulation (used with AdaptiveTempering)
+# from problem_setup.compact_problem.likelihood_model import IPModelInexactFixHD as LikelihoodModel
+
 
 # ==============================================================================
 # MCMC & SAMPLER SELECTION
@@ -27,9 +28,10 @@ from core.mcmc import RWRegCal as MCMCClass
 # from core.mcmc import RWUnc as MCMCClass
 # from core.mcmc import NoisyMetropolisCal as MCMCClass
 
-# Samplers (available options: AdaptiveTempering, TempAdaptNsampNoRew, Tempering)
-from particles.smc_samplers import AdaptiveTempering as SamplerClass
+# Samplers (available options: AdaptiveTempering, TempAdaptNsampNoRew, TempNsampNoRew)
+# from particles.smc_samplers import AdaptiveTempering as SamplerClass
 # from core.samplers import TempAdaptNsampNoRew as SamplerClass
+from core.samplers import TempNsampNoRew as SamplerClass
 
 # ==============================================================================
 # RUN SETTINGS
@@ -86,13 +88,26 @@ if __name__ == "__main__":
     mcmc_obj = MCMCClass()
     move = AdaptiveMCMCSequence(mcmc=mcmc_obj, adaptive=False, len_chain=len_chain)
     
-    sampler_name = SamplerClass.__name__
-    if sampler_name == "AdaptiveTempering":
-        fk_tempering = SamplerClass(model=model, move=move, wastefree=False, ESSrmin=ESS_rmin, len_chain=len_chain)
-    elif sampler_name == "TempAdaptNsampNoRew":
-        fk_tempering = SamplerClass(model=model, move=move, wastefree=False, ESSrmin=ESS_rmin, Nmin=Nmin, ar_tol=ar_tol, len_chain=len_chain)
-    else:  # Standard Tempering or others
-        fk_tempering = SamplerClass(model=model, move=move, len_chain=len_chain)
+    from core.samplers import TempAdaptNsampNoRew, TempNsampNoRew
+    from particles.smc_samplers import AdaptiveTempering
+    
+    # Fixed schedules for TempNsampNoRew
+    exponents_sched = np.linspace(0, 1, sc.len_chain)
+    nsamp_sched = np.full(sc.len_chain, sc.nsamp)
+    
+    # ==============================================================================
+    # SAMPLER INSTANTIATION (Uncomment ONE)
+    # ==============================================================================
+    
+    # 1. Adaptive Tempering (Fixed nsamp)
+    # fk_tempering = SamplerClass(model=model, move=move, wastefree=False, ESSrmin=ESS_rmin, len_chain=len_chain)
+    
+    # 2. TempAdaptNsampNoRew (Adaptive nsamp)
+    # fk_tempering = SamplerClass(model=model, move=move, wastefree=False, ESSrmin=ESS_rmin, Nmin=Nmin, ar_tol=ar_tol, len_chain=len_chain)
+    
+    # 3. TempNsampNoRew (Fixed tempering and fixed nsamp schedules)
+    fk_tempering = SamplerClass(model=model, move=move, wastefree=False, len_chain=sc.len_chain, exponents=exponents_sched, Nsamps=nsamp_sched)
+
 
     # 6. RUN SIMULATION
     my_temp_alg = SMC(fk=fk_tempering, N=n_particles, ESSrmin=1., verbose=True)
