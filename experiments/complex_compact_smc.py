@@ -1,0 +1,306 @@
+import os
+import time
+import numpy as np
+import ray
+import matplotlib.pyplot as plt
+from scipy.stats import wasserstein_distance
+from particles import distributions as dists
+from particles.smc_samplers import AdaptiveMCMCSequence
+from particles.core import SMC
+from omegaconf import OmegaConf
+
+from manager.experiment import ExperimentRunner
+from utils.is_get_ref_sol import get_ref_sols
+
+# Problem classes
+from problem_setup.compact_problem.likelihood_model import CompactModel as ModelExact
+from problem_setup.compact_problem.likelihood_model import IPModelInexactAdaptHD, IPModelInexactFixHD
+from problem_setup.compact_problem_density.likelihood_model import IPModelInexactAdaptHDDensity, IPModelInexactFixHDDensity
+
+# Samplers and MCMC
+from core.samplers import TempNsampNoRew
+from core.mcmc import NoisyMetropolisCal
+
+
+class ComplexCompactSMCExperiment(ExperimentRunner):
+    def setup(self, cfg):
+        problem_cfg = cfg.problem
+        sweep_cfg = cfg.experiment.sweep
+        
+        self.n_runs = sweep_cfg.n_runs
+        self.Nmax_seq = list(sweep_cfg.Nmax_seq)
+        self.n_particles_seq = list(sweep_cfg.n_particles_seq)
+        
+        self.param_dim = problem_cfg.param_dim
+        self.len_chain = problem_cfg.len_chain
+        
+        # ground_truth_par
+        self.ground_truth_par = np.array([0.5, -0.5, 0.2, 0.8, -0.1])
+        
+        # prior
+        a = problem_cfg.prior_a
+        b = problem_cfg.prior_b
+        if self.param_dim == 1:
+            prior = dists.StructDist({'param': dists.Uniform(a=a, b=b)})
+        else:
+            prior = dists.StructDist({'param': dists.IndepProd(*(dists.Uniform(a=a, b=b) for _ in range(self.param_dim)))})
+        
+        # Generate observed data
+        true_sol = ModelExact.exact_sol(self.ground_truth_par).reshape(-1, 1)
+        rng_data = np.random.default_rng(seed=81)
+        observed_data = true_sol + rng_data.normal(
+            loc=0., scale=np.sqrt(problem_cfg.data_noise_var), size=true_sol.shape
+        )
+        
+        # Compute exact posterior samples (Reference Solution)
+        print("Computing exact reference solutions...")
+        from problem_setup.compact_problem.likelihood_model import IPModelExactHD
+        model_ex = IPModelExactHD(prior=prior, data_noise_cov=problem_cfg.data_noise_var, data=observed_data)
+        
+        ref_sol_cfg = cfg.experiment.get("ref_sol", {})
+        ref_len_chain = ref_sol_cfg.get("len_chain", 5)
+        ref_ESSrmin = ref_sol_cfg.get("ESSrmin", 0.7)
+        ref_N = ref_sol_cfg.get("N", 1000)
+        
+        post_samp_ref_exact = get_ref_sols(
+            model_ex, len_chain=ref_len_chain, ESSrmin=ref_ESSrmin, N=ref_N
+        )
+        print("Reference solutions computed.")
+        
+        # Put shared variables into Ray object store
+        self.prior_ref = ray.put(prior)
+        self.observed_data_ref = ray.put(observed_data)
+        self.post_samp_ref_exact = post_samp_ref_exact
+        
+        # Dictionaries to store results: w1[problem][method][np_val] = np.zeros((len(Nmax_seq), n_runs))
+        self.results_w1 = {
+            "compact": {"adapt": {}, "std": {}},
+            "density": {"adapt": {}, "std": {}}
+        }
+        for np_val in self.n_particles_seq:
+            for prob in ["compact", "density"]:
+                for method in ["adapt", "std"]:
+                    self.results_w1[prob][method][np_val] = np.zeros((len(self.Nmax_seq), self.n_runs))
+        
+        self.cost_adapt = []
+        self.cost_fixed = []
+        
+        # Calculate theoretical costs based on Nmax
+        gamma_temp = problem_cfg.gamma_temp
+        n_temp_steps = problem_cfg.n_temp_steps
+        gamma_nsamp = problem_cfg.gamma_nsamp
+        
+        T_exponents = n_temp_steps
+        for nmax in self.Nmax_seq:
+            # Fixed cost
+            c_fixed = nmax + nmax * (self.len_chain - 1) * T_exponents
+            self.cost_fixed.append(c_fixed)
+            
+            # Adaptive cost
+            nsamp_sched = np.zeros(n_temp_steps + 1)
+            for t in range(n_temp_steps, -1, -1):
+                nsamp_sched[t] = nmax / (gamma_nsamp ** (n_temp_steps - t))
+            
+            c_adapt = nsamp_sched[0]
+            for t in range(1, T_exponents + 1):
+                c_adapt += nsamp_sched[t] * (self.len_chain - 1)
+                if nsamp_sched[t] > nsamp_sched[t-1]:
+                    c_adapt += nsamp_sched[t]
+            self.cost_adapt.append(c_adapt)
+
+    def generate_tasks(self, cfg):
+        cfg_dict = OmegaConf.to_container(cfg, resolve=True)
+        tasks = []
+        for i, nmax in enumerate(self.Nmax_seq):
+            for np_val in self.n_particles_seq:
+                for run_idx in range(self.n_runs):
+                    tasks.append({
+                        "nmax": nmax,
+                        "nmax_idx": i,
+                        "n_particles": np_val,
+                        "run_idx": run_idx,
+                        "prior_ref": self.prior_ref,
+                        "observed_data_ref": self.observed_data_ref,
+                        "cfg": cfg_dict
+                    })
+        return tasks
+
+    @staticmethod
+    def run_task(task_params):
+        import numpy as np
+        from omegaconf import OmegaConf
+        from particles.smc_samplers import AdaptiveMCMCSequence
+        from particles.core import SMC
+        from core.mcmc import NoisyMetropolisCal
+        from particles import distributions as dists
+        
+        from problem_setup.compact_problem.likelihood_model import IPModelInexactAdaptHD, IPModelInexactFixHD
+        from problem_setup.compact_problem_density.likelihood_model import IPModelInexactAdaptHDDensity, IPModelInexactFixHDDensity
+        
+        run_id = task_params["run_idx"]
+        np.random.seed(seed=run_id)
+        
+        prior = ray.get(task_params["prior_ref"])
+        observed_data = ray.get(task_params["observed_data_ref"])
+        cfg = OmegaConf.create(task_params["cfg"])
+        
+        nmax = task_params["nmax"]
+        n_particles = task_params["n_particles"]
+        
+        gamma_temp = cfg.problem.gamma_temp
+        n_temp_steps = cfg.problem.n_temp_steps
+        gamma_nsamp = cfg.problem.gamma_nsamp
+        len_chain = cfg.problem.len_chain
+        
+        exponents = np.array([(gamma_temp**t - 1) / (gamma_temp**n_temp_steps - 1) for t in range(1, n_temp_steps + 1)])
+        
+        Nsamps_adapt = np.zeros(n_temp_steps + 1)
+        for t in range(n_temp_steps, -1, -1):
+            Nsamps_adapt[t] = nmax / (gamma_nsamp ** (n_temp_steps - t))
+            
+        Nsamps_fixed = nmax * np.ones(len(exponents) + 1)
+        
+        mcmc = NoisyMetropolisCal()
+        move = AdaptiveMCMCSequence(mcmc=mcmc, adaptive=False, len_chain=len_chain)
+        
+        def run_smc(model, nsamps_arr):
+            fk = TempNsampNoRew(model=model, wastefree=False, move=move, exponents=exponents, Nsamps=nsamps_arr)
+            smc = SMC(fk=fk, N=n_particles, ESSrmin=1.0, verbose=False)
+            smc.run()
+            return np.array(smc.X.theta['param'])
+            
+        results = {}
+        
+        # 1. Compact
+        m_comp_adapt = IPModelInexactAdaptHD(prior=prior, data_noise_cov=cfg.problem.data_noise_var, data=observed_data)
+        results["compact_adapt"] = run_smc(m_comp_adapt, Nsamps_adapt)
+        results["compact_std"] = run_smc(m_comp_adapt, Nsamps_fixed)
+        
+        # 2. Compact Density
+        m_data = len(observed_data)
+        noise_prior_scale = np.sqrt(cfg.problem.data_noise_var / 1)
+        prior_e = dists.MvNormal(loc=np.zeros(m_data), cov=noise_prior_scale**2 * np.eye(m_data))
+        a = cfg.problem.prior_a
+        b = cfg.problem.prior_b
+        param_dim = cfg.problem.param_dim
+        if param_dim == 1:
+            prior_param = dists.Uniform(a=a, b=b)
+        else:
+            prior_param = dists.IndepProd(*(dists.Uniform(a=a, b=b) for _ in range(param_dim)))
+            
+        prior_dens = dists.StructDist({
+            'param': prior_param,
+            'e': prior_e
+        })
+        
+        m_dens_adapt = IPModelInexactAdaptHDDensity(prior=prior_dens, data_noise_cov=cfg.problem.data_noise_var, data=observed_data)
+        results["density_adapt"] = run_smc(m_dens_adapt, Nsamps_adapt)
+        results["density_std"] = run_smc(m_dens_adapt, Nsamps_fixed)
+        
+        return task_params["nmax_idx"], task_params["n_particles"], task_params["run_idx"], results
+
+    def process_result(self, task_params, result, storage_mode):
+        nmax_idx, np_val, run_idx, res_dict = result
+        
+        def calc_w1(samples):
+            w1_vals = [wasserstein_distance(samples[:, i], self.post_samp_ref_exact[:, i]) for i in range(self.param_dim)]
+            return np.mean(w1_vals)
+            
+        self.results_w1["compact"]["adapt"][np_val][nmax_idx, run_idx] = calc_w1(res_dict["compact_adapt"])
+        self.results_w1["compact"]["std"][np_val][nmax_idx, run_idx] = calc_w1(res_dict["compact_std"])
+        self.results_w1["density"]["adapt"][np_val][nmax_idx, run_idx] = calc_w1(res_dict["density_adapt"])
+        self.results_w1["density"]["std"][np_val][nmax_idx, run_idx] = calc_w1(res_dict["density_std"])
+
+    def save_results(self, output_dir):
+        z_val = 1.96
+        
+        def get_asym_yerr(mean_vals, ci_vals):
+            lower_bound = np.clip(mean_vals - ci_vals, 1e-12, None)
+            return [mean_vals - lower_bound, ci_vals]
+            
+        colors = {50: 'orange', 100: 'blue', 200: 'green'}
+        
+        def plot_problem(prob_name, title):
+            fig1, ax1 = plt.subplots(1, 1, figsize=(8, 6))
+            fig2, ax2 = plt.subplots(1, 1, figsize=(8, 6))
+            
+            for np_val in self.n_particles_seq:
+                color = colors[np_val]
+                
+                # Adapt
+                w1_a = self.results_w1[prob_name]["adapt"][np_val]
+                mean_a = np.mean(w1_a, axis=1)
+                ci_a = z_val * np.std(w1_a, axis=1, ddof=1) / np.sqrt(self.n_runs)
+                ax1.errorbar(self.Nmax_seq, mean_a, yerr=get_asym_yerr(mean_a, ci_a),
+                             marker='o', linestyle='-', color=color, capsize=5, linewidth=2.5, elinewidth=2.5, markersize=8)
+                
+                # Std
+                w1_s = self.results_w1[prob_name]["std"][np_val]
+                mean_s = np.mean(w1_s, axis=1)
+                ci_s = z_val * np.std(w1_s, axis=1, ddof=1) / np.sqrt(self.n_runs)
+                ax1.errorbar(self.Nmax_seq, mean_s, yerr=get_asym_yerr(mean_s, ci_s),
+                             marker='s', linestyle='--', color=color, capsize=5, linewidth=2.5, elinewidth=2.5, markersize=8)
+            
+            ax1.set_xscale('log'); ax1.set_yscale('log')
+            ax1.set_xticks(self.Nmax_seq); ax1.get_xaxis().set_major_formatter(plt.ScalarFormatter())
+            ax1.tick_params(axis='both', which='major', labelsize=16)
+            ax1.set_xlabel('$S_{max}$', fontsize=20)
+            ax1.set_ylabel('Mean Wasserstein-1 Distance', fontsize=20)
+            ax1.set_title(f'W1 Distance - {title} (Complex)', fontsize=20)
+            ax1.grid(True, which="both", linestyle="--", alpha=0.6)
+            
+            from matplotlib.lines import Line2D
+            legend_elements = [
+                Line2D([0], [0], color='black', marker='o', linestyle='-', linewidth=2.5, markersize=8, label='Adaptive'),
+                Line2D([0], [0], color='black', marker='s', linestyle='--', linewidth=2.5, markersize=8, label='Standard')
+            ]
+            for np_val in self.n_particles_seq:
+                legend_elements.append(Line2D([0], [0], color=colors[np_val], linewidth=2.5, label=f'$N = {np_val}$'))
+                
+            ax1.legend(handles=legend_elements, fontsize=14)
+            
+            # Cost plot
+            ax2.plot(self.Nmax_seq, self.cost_adapt, marker='o', linestyle='-', color='black', linewidth=2.5, markersize=8, label='Adaptive')
+            ax2.plot(self.Nmax_seq, self.cost_fixed, marker='s', linestyle='--', color='black', linewidth=2.5, markersize=8, label='Standard')
+            
+            anchor_nmax = self.Nmax_seq[-1]
+            anchor_cost = self.cost_adapt[-1]
+            slope_nmax = [anchor_cost * (n / anchor_nmax) for n in self.Nmax_seq]
+            slope_tnmax = [anchor_cost * (n / anchor_nmax) * self.len_chain for n in self.Nmax_seq]
+            
+            ax2.plot(self.Nmax_seq, slope_nmax, linestyle=':', color='black', linewidth=2, label=r'$\mathcal{O}(S_{max})$')
+            ax2.plot(self.Nmax_seq, slope_tnmax, linestyle=':', color='black', linewidth=2, label=r'$\mathcal{O}(T \cdot S_{max})$')
+
+            ax2.set_xscale('log'); ax2.set_yscale('log')
+            ax2.set_xticks(self.Nmax_seq); ax2.get_xaxis().set_major_formatter(plt.ScalarFormatter())
+            ax2.tick_params(axis='both', which='major', labelsize=16)
+            ax2.set_xlabel('$S_{max}$', fontsize=20)
+            ax2.set_ylabel('Cost per particle', fontsize=20)
+            ax2.set_title(f'Cost per particle - {title}', fontsize=20)
+            ax2.grid(True, which="both", linestyle="--", alpha=0.6)
+            ax2.legend(fontsize=16)
+
+            fig1.tight_layout()
+            fig2.tight_layout()
+            
+            fig1.savefig(os.path.join(output_dir, f'w1_distance_{prob_name}.pdf'))
+            fig2.savefig(os.path.join(output_dir, f'cost_{prob_name}.pdf'))
+            
+        plot_problem("compact", "Compact")
+        plot_problem("density", "Compact Density")
+        
+        # Save npz
+        save_dict = {
+            "Nmax_seq": np.array(self.Nmax_seq),
+            "n_particles_seq": np.array(self.n_particles_seq),
+            "cost_adapt": np.array(self.cost_adapt),
+            "cost_fixed": np.array(self.cost_fixed)
+        }
+        for prob in ["compact", "density"]:
+            for method in ["adapt", "std"]:
+                for np_val in self.n_particles_seq:
+                    save_dict[f"w1_{prob}_{method}_{np_val}"] = self.results_w1[prob][method][np_val]
+                    
+        out_file = os.path.join(output_dir, "smc_results.npz")
+        np.savez_compressed(out_file, **save_dict)
+        print(f"Results successfully saved to {out_file}")
