@@ -24,10 +24,10 @@ class ExperimentRunner(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def process_result(self, task_params, result, storage_mode):
+    def process_result(self, task_params, result):
         """
         Callback executed in the main process when a Ray task completes.
-        Applies on-the-fly aggregation or statistics calculation depending on storage_mode.
+        Applies on-the-fly aggregation or statistics calculation.
         """
         pass
 
@@ -121,32 +121,7 @@ class ExperimentManager:
         num_tasks = len(tasks)
         print(f"Generated {num_tasks} tasks.")
 
-        # 5. Dual-Regime Storage Check
-        problem_cfg = self.cfg.problem
-        num_particles = problem_cfg.n_particles
-        
-        # Determine total_floats robustly
-        param_dim = problem_cfg.get("param_dim", None)
-        if param_dim is not None:
-            total_floats = num_tasks * num_particles * param_dim
-        else:
-            sweep_cfg = self.cfg.get("experiment", {}).get("sweep", {})
-            if "param_dims" in sweep_cfg:
-                param_dims = sweep_cfg.param_dims
-                tasks_per_dim = num_tasks / len(param_dims)
-                total_floats = tasks_per_dim * num_particles * sum(param_dims)
-            else:
-                print("Warning: no parameter dimensions have been specified on the input, cost cannot be estimated. Assuming cost is infty.")
-                total_floats = float('inf')
-
-        if total_floats <= self.threshold:
-            storage_mode = "raw_particles"
-            print(f"Total floats: {total_floats} <= {self.threshold}. Using Regime A: Raw Particles.")
-        else:
-            storage_mode = "predefined_stats"
-            print(f"Total floats: {total_floats} > {self.threshold}. Using Regime B: Predefined Stats (Wasserstein/etc.).")
-
-        # 6. Dispatch Tasks
+        # 5. Dispatch Tasks
         # Dynamic Ray wrapping of the static run_task method
         print("Dispatching tasks to Ray cluster...")
         import time
@@ -154,7 +129,7 @@ class ExperimentManager:
         remote_task = ray.remote(self.runner.run_task)
         futures = {remote_task.remote(task): task for task in tasks}
 
-        # 7. Asynchronous Collection
+        # 6. Asynchronous Collection
         pending = list(futures.keys())
         total_tasks = len(pending)
         done_tasks = 0
@@ -166,7 +141,7 @@ class ExperimentManager:
             task_params = futures[ref]
             try:
                 result = ray.get(ref)
-                self.runner.process_result(task_params, result, storage_mode)
+                self.runner.process_result(task_params, result)
             except Exception as e:
                 print(f"Error processing task with params {task_params}: {e}")
                 raise e
@@ -176,7 +151,7 @@ class ExperimentManager:
                 elapsed_time = time.time() - start_time
                 print(f"[{done_tasks}/{total_tasks}] tasks completed in {elapsed_time:.2f}s.")
 
-        # 8. Save results
+        # 7. Save results
         print(f"Saving final aggregated results to {output_dir}...")
         self.runner.save_results(output_dir)
         print("Experiment run completed successfully.")

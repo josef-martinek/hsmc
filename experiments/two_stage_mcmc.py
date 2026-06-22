@@ -125,6 +125,20 @@ class Test2StageMCMCExperiment(ExperimentRunner):
                             "fine_over_coarse_nsamp": cfg.problem.fine_over_coarse_nsamp,
                             "data_noise_var": cfg.problem.data_noise_var
                         })
+                        
+        num_tasks = len(tasks)
+        num_particles = cfg.problem.n_particles
+        tasks_per_dim = num_tasks / len(self.param_dims)
+        total_floats = tasks_per_dim * num_particles * sum(self.param_dims)
+        
+        threshold = 5 * 10**6
+        if total_floats <= threshold:
+            self.storage_mode = "raw_particles"
+            print(f"Total floats: {total_floats} <= {threshold}. Using Regime A: Raw Particles.")
+        else:
+            self.storage_mode = "predefined_stats"
+            print(f"Total floats: {total_floats} > {threshold}. Using Regime B: Predefined Stats (Wasserstein/etc.).")
+            
         return tasks
 
     @staticmethod
@@ -216,7 +230,7 @@ class Test2StageMCMCExperiment(ExperimentRunner):
         post_samp = my_temp_alg.X.theta['param']
         return post_samp
 
-    def process_result(self, task_params, result, storage_mode):
+    def process_result(self, task_params, result):
         budget = task_params["budget"]
         percent = task_params["percent"]
         dim = task_params["param_dim"]
@@ -235,7 +249,7 @@ class Test2StageMCMCExperiment(ExperimentRunner):
         self.W_ex_by_setup.append(np.mean(W_ex))
 
         # Store raw particles if Regime A (raw_particles)
-        if storage_mode == "raw_particles":
+        if getattr(self, 'storage_mode', 'raw_particles') == "raw_particles":
             self.raw_particles_by_setup.append((task_params, result.astype(np.float32)))
 
     def save_results(self, output_dir):

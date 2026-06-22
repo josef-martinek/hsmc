@@ -60,14 +60,14 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
             d=problem_cfg.param_dim,
             truncation_radius_R=problem_cfg.truncation_radius_R,
             base_variance=problem_cfg.base_variance,
-            seed=problem_cfg.get("ground_truth_seed", 42)
+            seed=problem_cfg.ground_truth_seed
         )
         model_ex = IPModelExactHD(prior=prior, data_noise_cov=problem_cfg.data_noise_var, data=observed_data)
         
-        ref_sol_cfg = cfg.experiment.get("ref_sol", {})
-        ref_len_chain = ref_sol_cfg.get("len_chain", 5)
-        ref_ESSrmin = ref_sol_cfg.get("ESSrmin", 0.7)
-        ref_N = ref_sol_cfg.get("N", 1000)
+        ref_sol_cfg = cfg.experiment.ref_sol
+        ref_len_chain = ref_sol_cfg.len_chain
+        ref_ESSrmin = ref_sol_cfg.ESSrmin
+        ref_N = ref_sol_cfg.N
         
         post_samp_ref_exact = get_ref_sols(
             model_ex, len_chain=ref_len_chain, ESSrmin=ref_ESSrmin, N=ref_N
@@ -158,7 +158,7 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
             d=cfg.problem.param_dim,
             truncation_radius_R=cfg.problem.truncation_radius_R,
             base_variance=cfg.problem.base_variance,
-            seed=cfg.problem.get("ground_truth_seed", 42)
+            seed=cfg.problem.ground_truth_seed
         )
         
         nmax = task_params["nmax"]
@@ -212,7 +212,7 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         
         return task_params["nmax_idx"], task_params["n_particles"], task_params["run_idx"], results
 
-    def process_result(self, task_params, result, storage_mode):
+    def process_result(self, task_params, result):
         nmax_idx, np_val, run_idx, res_dict = result
         
         def calc_w1(samples):
