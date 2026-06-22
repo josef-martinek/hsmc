@@ -87,10 +87,21 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
             "compact": {"adapt": {}, "std": {}},
             "density": {"adapt": {}}
         }
+        self.results_stats = {
+            "compact": {"adapt": {}, "std": {}},
+            "density": {"adapt": {}}
+        }
         for np_val in self.n_particles_seq:
             self.results_w1["compact"]["adapt"][np_val] = np.zeros((len(self.Nmax_seq), self.n_runs))
             self.results_w1["compact"]["std"][np_val] = np.zeros((len(self.Nmax_seq), self.n_runs))
             self.results_w1["density"]["adapt"][np_val] = np.zeros((len(self.Nmax_seq), self.n_runs))
+            
+            for prob, method in [("compact", "adapt"), ("compact", "std"), ("density", "adapt")]:
+                self.results_stats[prob][method][np_val] = {
+                    "ESS": np.zeros((len(self.Nmax_seq), self.n_runs, problem_cfg.n_temp_steps)),
+                    "acc_rate": np.zeros((len(self.Nmax_seq), self.n_runs, problem_cfg.n_temp_steps - 1)),
+                    "exponents": None
+                }
         
         self.cost_adapt = []
         self.cost_fixed = []
@@ -187,7 +198,13 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
             fk = sampler_class(model=model, wastefree=False, move=move, exponents=exponents, Nsamps=nsamps_arr)
             smc = SMC(fk=fk, N=n_particles, ESSrmin=1.0, verbose=False)
             smc.run()
-            return np.array(smc.X.theta['param'])
+            
+            ess = np.array(smc.summaries.ESSs)
+            acc_rates_list = smc.X.shared.get("acc_rates", [])
+            acc_rates = np.array([np.mean(ar) for ar in acc_rates_list]) if acc_rates_list else np.array([])
+            exps = np.array(smc.X.shared.get("exponents", []))
+            
+            return np.array(smc.X.theta['param']), ess, acc_rates, exps
             
         results = {}
         
@@ -221,9 +238,21 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
             w1_vals = [wasserstein_distance(samples[:, i], self.post_samp_ref_exact[:, i]) for i in range(self.param_dim)]
             return np.mean(w1_vals)
             
-        self.results_w1["compact"]["adapt"][np_val][nmax_idx, run_idx] = calc_w1(res_dict["compact_adapt"])
-        self.results_w1["compact"]["std"][np_val][nmax_idx, run_idx] = calc_w1(res_dict["compact_std"])
-        self.results_w1["density"]["adapt"][np_val][nmax_idx, run_idx] = calc_w1(res_dict["density_adapt"])
+        for prob, method, key in [
+            ("compact", "adapt", "compact_adapt"),
+            ("compact", "std", "compact_std"),
+            ("density", "adapt", "density_adapt")
+        ]:
+            param_samples, ess, acc_rates, exps = res_dict[key]
+            self.results_w1[prob][method][np_val][nmax_idx, run_idx] = calc_w1(param_samples)
+            
+            self.results_stats[prob][method][np_val]["ESS"][nmax_idx, run_idx, :] = ess
+            if len(acc_rates) > 0:
+                self.results_stats[prob][method][np_val]["acc_rate"][nmax_idx, run_idx, :] = acc_rates
+                
+            # Only need to store exponents once per configuration since it's identical
+            if run_idx == 0 and nmax_idx == 0:
+                self.results_stats[prob][method][np_val]["exponents"] = exps
 
     def save_results(self, output_dir):
         z_val = 1.96
@@ -325,3 +354,46 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         out_file = os.path.join(output_dir, "smc_results.npz")
         np.savez_compressed(out_file, **save_dict)
         print(f"Results successfully saved to {out_file}")
+        
+        # 3. Write Stats Summary
+        stats_file = os.path.join(output_dir, "stats_summary.txt")
+        with open(stats_file, 'w') as f:
+            for prob, method, key in [
+                ("compact", "adapt", "compact_adapt"),
+                ("compact", "std", "compact_std"),
+                ("density", "adapt", "density_adapt")
+            ]:
+                for np_val in self.n_particles_seq:
+                    for nmax_idx, nmax in enumerate(self.Nmax_seq):
+                        stats = self.results_stats[prob][method][np_val]
+                        exps = stats["exponents"]
+                        
+                        # Calculate means over runs
+                        mean_ess = np.mean(stats["ESS"][nmax_idx], axis=0) # shape: (n_temp_steps,)
+                        mean_acc = np.mean(stats["acc_rate"][nmax_idx], axis=0) # shape: (n_temp_steps - 1,)
+                        
+                        f.write("=" * 80 + "\n")
+                        f.write(f"Algorithm: {key} | Nmax: {nmax} | Particles: {np_val}\n")
+                        f.write("=" * 80 + "\n")
+                        f.write(f"{'Step':>4} | {'Target Exponent':>15} | {'Avg ESS':>10} | {'Avg Acc. Rate':>15}\n")
+                        f.write("-" * 80 + "\n")
+                        
+                        n_steps = len(mean_ess)
+                        for t in range(n_steps):
+                            # The exponent array has length n_temp_steps + 1
+                            # Exponent applied at step t is exps[t+1]
+                            # t=0 -> transition to exps[1]
+                            exp_val = exps[t + 1] if exps is not None else 0.0
+                            ess_val = mean_ess[t]
+                            
+                            # Acceptance rate only available for t >= 1
+                            if t == 0:
+                                acc_str = "N/A"
+                            else:
+                                acc_val = mean_acc[t - 1]
+                                acc_str = f"{acc_val:.3f}"
+                                
+                            f.write(f"{t:4d} | {exp_val:15.5f} | {ess_val:10.2f} | {acc_str:>15}\n")
+                        f.write("\n")
+        
+        print(f"Stats summary saved to {stats_file}")
