@@ -142,8 +142,9 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         from particles import distributions as dists
         
         from problem_setup.compact_problem.likelihood_model import IPModelInexactAdaptHD, IPModelInexactFixHD, CompactModel
-        from problem_setup.compact_problem_density.likelihood_model import IPModelInexactFixHDDensity, IPModelInexactAdaptHDDensity, DummyNoisePrior
-        from problem_setup.compact_problem_density.kernel_ratio import KernelRatioEvaluator, KernelReweightingMixin
+        from problem_setup.compact_problem_density.likelihood_model import IPModelInexactFixHDDensity, IPModelInexactAdaptHDDensity
+        from problem_setup.compact_problem_density.kernel_ratio import KernelRatioEvaluator
+        from problem_setup.compact_problem_density.samplers import DensityTempNsampNoRew
         
         run_id = task_params["run_idx"]
         np.random.seed(seed=run_id)
@@ -179,9 +180,6 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         mcmc = RWRegCal()
         move = AdaptiveMCMCSequence(mcmc=mcmc, adaptive=False, len_chain=len_chain)
         
-        class TempNsampNoRewDensity(KernelReweightingMixin, TempNsampNoRew):
-            pass
-        
         def run_smc(model, nsamps_arr, sampler_class=TempNsampNoRew):
             fk = sampler_class(model=model, wastefree=False, move=move, exponents=exponents, Nsamps=nsamps_arr)
             smc = SMC(fk=fk, N=n_particles, ESSrmin=1.0, verbose=False)
@@ -197,7 +195,6 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         
         # 2. Compact Density
         m_data = len(observed_data)
-        prior_e = DummyNoisePrior(m_data)
         a = cfg.problem.prior_a
         b = cfg.problem.prior_b
         param_dim = cfg.problem.param_dim
@@ -206,15 +203,12 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         else:
             prior_param = dists.IndepProd(*(dists.Uniform(a=a, b=b) for _ in range(param_dim)))
             
-        prior_dens = dists.StructDist({
-            'param': prior_param,
-            'e': prior_e
-        })
+        prior_dens = dists.StructDist({'param': prior_param})
         
         m_dens_adapt = IPModelInexactAdaptHDDensity(prior=prior_dens, data_noise_cov=cfg.problem.data_noise_var, data=observed_data)
         m_dens_adapt.evaluator = KernelRatioEvaluator(CompactModel)
-        results["density_adapt"] = run_smc(m_dens_adapt, Nsamps_adapt, sampler_class=TempNsampNoRewDensity)
-        results["density_std"] = run_smc(m_dens_adapt, Nsamps_fixed, sampler_class=TempNsampNoRewDensity)
+        results["density_adapt"] = run_smc(m_dens_adapt, Nsamps_adapt, sampler_class=DensityTempNsampNoRew)
+        results["density_std"] = run_smc(m_dens_adapt, Nsamps_fixed, sampler_class=DensityTempNsampNoRew)
         
         return task_params["nmax_idx"], task_params["n_particles"], task_params["run_idx"], results
 

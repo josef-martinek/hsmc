@@ -23,21 +23,3 @@ class KernelRatioEvaluator:
         # Calculate the unnormalized log ratio
         return -(S_curr - S_prev) * e_norm_sq / (2 * sigma_sq)
 
-class KernelReweightingMixin:
-    def logG_tempering(self, x, delta):
-        # 1. Standard tempering weight based on current fixed potential
-        dl = delta * x.llik
-        x.lpost += dl
-        
-        # 2. Add our custom kernel ratio if nsamp changed
-        shared_nsamp = x.shared.get("solver_nsamp", [])
-        if len(shared_nsamp) >= 2 and shared_nsamp[-1] != shared_nsamp[-2]:
-            S_prev = shared_nsamp[-2]
-            S_curr = shared_nsamp[-1]
-            e_particles = x.theta['e']
-            log_ratio = self.model.evaluator.evaluate_log_ratio(e_particles, S_prev, S_curr)
-            
-            # Update the incremental weight
-            dl += log_ratio
-            
-        return dl

@@ -1,26 +1,11 @@
 import numpy as np
 from problem_setup.compact_problem.likelihood_model import CompactModel, IPModelInexactAdapt, IPModelInexactFix, IPModelExact, IPModelInexactAdaptHD, IPModelInexactFixHD
-from particles.distributions import ProbDist
 
-class DummyNoisePrior(ProbDist):
-    """
-    A dummy prior that returns 0.0 for its log-density. 
-    This prevents the exact-approximate MCMC target density from penalizing
-    the structurally sampled noise realization `e`.
-    """
-    def __init__(self, m):
-        self.m = m
-        self.dim = m
-    def rvs(self, size=1):
-        return np.zeros((size, self.m))
-    def logpdf(self, x):
-        return np.zeros(x.shape[0])
 
 class LikelihoodNoiseTrackingMixin:
     """
     Mixin for IPModel classes to intercept the likelihood evaluation
-    and explicitly save the generated noise realization `e` into the
-    particle's state array (`theta['e']`).
+    and save the generated noise realization `e` into a stateful attribute.
     """
     def _loglik(self, theta, nsamp=None):
         # We need to extract parameters to evaluate the model
@@ -31,10 +16,8 @@ class LikelihoodNoiseTrackingMixin:
         else:
             model_prediction = self.evaluate_model(param_values)
         
-        # Inject the noise realization directly into the state array.
-        # This overrides the dummy values drawn by the particles prior.
-        if 'e' in theta.dtype.names:
-            theta['e'] = self.get_noise_realization(param_values, model_prediction)
+        # Save the noise realization on the model so the custom SMC sampler can fetch it
+        self.last_e_eval = self.get_noise_realization(param_values, model_prediction)
             
         # Standard log-likelihood computation
         residual = self.data - model_prediction

@@ -8,25 +8,25 @@ class SamplerConfig:
 
     m = 10
     param_dim = 5  # Note: param_dim represents 'd'
-    truncation_radius_R = 1.0
-    base_variance = 2.0
+    truncation_radius_R = 20.0
+    base_variance = 1.
 
     ground_truth_par = np.array([0.5, -0.5, 0.2, 0.8, -0.1])
 
-    n_particles = 1000
-    len_chain = 5
+    n_particles = 100
+    len_chain = 10
     n_temp_steps = 10
     ESS_rmin = 0.7
     ar_tol = 0.35
     Nmin = 32
 
-    N_max = 64.0
-    gamma_nsamp = 1.25
+    N_max = 32.0
+    gamma_nsamp = 2
     gamma_temp = 1.5
 
     fine_over_coarse_nsamp = None
     coarse_chain_scale = None
 
     prior_type = "uniform"
-    prior_a = -2.0
-    prior_b = 2.0
+    prior_a = -8.0
+    prior_b = 8.0

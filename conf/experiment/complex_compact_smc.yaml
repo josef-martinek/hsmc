@@ -13,7 +13,7 @@ problem:
   n_temp_steps: 10
   gamma_nsamp: 2
   gamma_temp: 1.5
-  N_max: 64.0
+  N_max: 16.0
   n_particles: 50 #Also this
   ground_truth_seed: 42
   prior_a: -2.0

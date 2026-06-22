@@ -16,9 +16,9 @@ from problem_setup.compact_problem_density.likelihood_model import CompactModel 
 # Adaptive formulation (used with TempAdaptNsampNoRew and TempNsampNoRew)
 from problem_setup.compact_problem_density.likelihood_model import IPModelInexactAdaptHDDensity
 # Fixed formulation (used with AdaptiveTempering)
-from problem_setup.compact_problem_density.likelihood_model import IPModelInexactFixHDDensity, DummyNoisePrior
+from problem_setup.compact_problem_density.likelihood_model import IPModelInexactFixHDDensity
 
-from problem_setup.compact_problem_density.kernel_ratio import KernelRatioEvaluator, KernelReweightingMixin
+from problem_setup.compact_problem_density.kernel_ratio import KernelRatioEvaluator
 
 # ==============================================================================
 # MCMC & SAMPLER SELECTION
@@ -29,7 +29,7 @@ from core.mcmc import RWRegCal as MCMCClass
 
 from particles.smc_samplers import AdaptiveTempering
 from core.samplers import TempAdaptNsampNoRew
-from core.samplers import TempNsampNoRew
+from problem_setup.compact_problem_density.samplers import DensityTempNsampNoRew
 # RUN SETTINGS
 # ==============================================================================
 resample_move_end = True
@@ -67,26 +67,14 @@ if __name__ == "__main__":
     else:
         param_dist = dists.IndepProd(*(dists.Uniform(a=a, b=b) for _ in range(param_dim)))
     
-    # Track e by adding a dummy distribution for memory allocation
-    prior = dists.StructDist({
-        'param': param_dist,
-        'e': DummyNoisePrior(m_data)
-    })
+    prior = dists.StructDist({'param': param_dist})
 
     # --- CHOOSE LIKELIHOOD MODEL ---
     # LikelihoodModel = IPModelInexactFixHDDensity
     LikelihoodModel = IPModelInexactAdaptHDDensity
     
     # --- CHOOSE SAMPLER ---
-    # SamplerClass = AdaptiveTempering
-    # SamplerClass = TempAdaptNsampNoRew
-    SamplerClass = TempNsampNoRew
-
-    if SamplerClass.__name__ in ["TempAdaptNsampNoRew", "TempNsampNoRew"]:
-        class SamplerClassToUse(KernelReweightingMixin, SamplerClass):
-            pass
-    else:
-        SamplerClassToUse = SamplerClass
+    SamplerClassToUse = DensityTempNsampNoRew
 
     # 4. LIKELIHOOD MODEL INSTANTIATION
     if "Fix" in LikelihoodModel.__name__:
