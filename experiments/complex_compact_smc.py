@@ -143,6 +143,7 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         
         from problem_setup.compact_problem.likelihood_model import IPModelInexactAdaptHD, IPModelInexactFixHD, CompactModel
         from problem_setup.compact_problem_density.likelihood_model import IPModelInexactAdaptHDDensity, IPModelInexactFixHDDensity
+        from problem_setup.compact_problem_density.kernel_ratio import KernelRatioEvaluator, KernelReweightingMixin
         
         run_id = task_params["run_idx"]
         np.random.seed(seed=run_id)
@@ -178,8 +179,11 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         mcmc = RWRegCal()
         move = AdaptiveMCMCSequence(mcmc=mcmc, adaptive=False, len_chain=len_chain)
         
-        def run_smc(model, nsamps_arr):
-            fk = TempNsampNoRew(model=model, wastefree=False, move=move, exponents=exponents, Nsamps=nsamps_arr)
+        class TempNsampNoRewDensity(KernelReweightingMixin, TempNsampNoRew):
+            pass
+        
+        def run_smc(model, nsamps_arr, sampler_class=TempNsampNoRew):
+            fk = sampler_class(model=model, wastefree=False, move=move, exponents=exponents, Nsamps=nsamps_arr)
             smc = SMC(fk=fk, N=n_particles, ESSrmin=1.0, verbose=False)
             smc.run()
             return np.array(smc.X.theta['param'])
@@ -209,8 +213,9 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         })
         
         m_dens_adapt = IPModelInexactAdaptHDDensity(prior=prior_dens, data_noise_cov=cfg.problem.data_noise_var, data=observed_data)
-        results["density_adapt"] = run_smc(m_dens_adapt, Nsamps_adapt)
-        results["density_std"] = run_smc(m_dens_adapt, Nsamps_fixed)
+        m_dens_adapt.evaluator = KernelRatioEvaluator(CompactModel)
+        results["density_adapt"] = run_smc(m_dens_adapt, Nsamps_adapt, sampler_class=TempNsampNoRewDensity)
+        results["density_std"] = run_smc(m_dens_adapt, Nsamps_fixed, sampler_class=TempNsampNoRewDensity)
         
         return task_params["nmax_idx"], task_params["n_particles"], task_params["run_idx"], results
 

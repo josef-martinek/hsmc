@@ -18,41 +18,18 @@ from problem_setup.compact_problem_density.likelihood_model import IPModelInexac
 # Fixed formulation (used with AdaptiveTempering)
 from problem_setup.compact_problem_density.likelihood_model import IPModelInexactFixHDDensity
 
-from problem_setup.compact_problem_density.kernel_ratio import KernelRatioEvaluator
+from problem_setup.compact_problem_density.kernel_ratio import KernelRatioEvaluator, KernelReweightingMixin
 
 # ==============================================================================
 # MCMC & SAMPLER SELECTION
 # ==============================================================================
 
 # MCMC mutations (available options: RWRegCal, RWUnc, NoisyMetropolisCal)
-from core.mcmc import NoisyMetropolisCal as MCMCClass
+from core.mcmc import RWRegCal as MCMCClass
 
 from particles.smc_samplers import AdaptiveTempering
 from core.samplers import TempAdaptNsampNoRew
 from core.samplers import TempNsampNoRew
-
-# Define the mixin to apply the kernel ratio weight
-class KernelReweightingMixin:
-    def logG_tempering(self, x, delta):
-        # 1. Base logG_tempering
-        dl = super().logG_tempering(x, delta)
-        
-        # 2. Add our custom kernel ratio if nsamp changed
-        shared_nsamp = x.shared["solver_nsamp"]
-        if len(shared_nsamp) >= 2 and shared_nsamp[-1] != shared_nsamp[-2]:
-            S_prev = shared_nsamp[-2]
-            S_curr = shared_nsamp[-1]
-            e_particles = x.theta['e']
-            log_ratio = self.model.evaluator.evaluate_log_ratio(e_particles, S_prev, S_curr)
-            
-            # Update the incremental weight
-            dl += log_ratio
-            
-        return dl
-
-
-
-# ==============================================================================
 # RUN SETTINGS
 # ==============================================================================
 resample_move_end = True
