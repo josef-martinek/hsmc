@@ -25,8 +25,9 @@ class KernelRatioEvaluator:
 
 class KernelReweightingMixin:
     def logG_tempering(self, x, delta):
-        # 1. Base logG_tempering
-        dl = super().logG_tempering(x, delta)
+        # 1. Standard tempering weight based on current fixed potential
+        dl = delta * x.llik
+        x.lpost += dl
         
         # 2. Add our custom kernel ratio if nsamp changed
         shared_nsamp = x.shared.get("solver_nsamp", [])
@@ -36,7 +37,8 @@ class KernelReweightingMixin:
             e_particles = x.theta['e']
             log_ratio = self.model.evaluator.evaluate_log_ratio(e_particles, S_prev, S_curr)
             
-            # Update the incremental weight
+            # Update the incremental weight and the posterior
             dl += log_ratio
+            x.lpost += log_ratio
             
         return dl
