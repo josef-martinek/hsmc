@@ -2,16 +2,27 @@ import numpy as np
 from scipy.stats import chi
 from problem_setup.likelihood_base import IPModel1D, IPModelHD
 
+from problem_setup.compact_problem.problem_parameters import SamplerConfig
+
 class CompactModel:
-    # Statically defined dimensions & radius
-    m = 10
-    d = 5
-    truncation_radius_R = 1.0
-    base_variance = 2.0
+    # Default dimensions & radius from problem_parameters
+    m = SamplerConfig.m
+    d = SamplerConfig.param_dim
+    truncation_radius_R = SamplerConfig.truncation_radius_R
+    base_variance = SamplerConfig.base_variance
 
     # Statically initialize the fixed random operator A with seed=42
     _rng = np.random.default_rng(seed=42)
     exact_fw_operator = _rng.normal(size=(m, d))
+
+    @classmethod
+    def setup(cls, m, d, truncation_radius_R, base_variance, seed=42):
+        cls.m = m
+        cls.d = d
+        cls.truncation_radius_R = truncation_radius_R
+        cls.base_variance = base_variance
+        _rng = np.random.default_rng(seed=seed)
+        cls.exact_fw_operator = _rng.normal(size=(m, d))
 
     @classmethod
     def exact_sol(cls, params):

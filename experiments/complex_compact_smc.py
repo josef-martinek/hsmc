@@ -19,7 +19,7 @@ from problem_setup.compact_problem_density.likelihood_model import IPModelInexac
 
 # Samplers and MCMC
 from core.samplers import TempNsampNoRew
-from core.mcmc import NoisyMetropolisCal
+from core.mcmc import RWRegCal
 
 
 class ComplexCompactSMCExperiment(ExperimentRunner):
@@ -54,7 +54,14 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         
         # Compute exact posterior samples (Reference Solution)
         print("Computing exact reference solutions...")
-        from problem_setup.compact_problem.likelihood_model import IPModelExactHD
+        from problem_setup.compact_problem.likelihood_model import IPModelExactHD, CompactModel
+        CompactModel.setup(
+            m=problem_cfg.m,
+            d=problem_cfg.param_dim,
+            truncation_radius_R=problem_cfg.truncation_radius_R,
+            base_variance=problem_cfg.base_variance,
+            seed=problem_cfg.get("ground_truth_seed", 42)
+        )
         model_ex = IPModelExactHD(prior=prior, data_noise_cov=problem_cfg.data_noise_var, data=observed_data)
         
         ref_sol_cfg = cfg.experiment.get("ref_sol", {})
@@ -131,10 +138,10 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         from omegaconf import OmegaConf
         from particles.smc_samplers import AdaptiveMCMCSequence
         from particles.core import SMC
-        from core.mcmc import NoisyMetropolisCal
+        from core.mcmc import RWRegCal
         from particles import distributions as dists
         
-        from problem_setup.compact_problem.likelihood_model import IPModelInexactAdaptHD, IPModelInexactFixHD
+        from problem_setup.compact_problem.likelihood_model import IPModelInexactAdaptHD, IPModelInexactFixHD, CompactModel
         from problem_setup.compact_problem_density.likelihood_model import IPModelInexactAdaptHDDensity, IPModelInexactFixHDDensity
         
         run_id = task_params["run_idx"]
@@ -143,6 +150,14 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         prior = ray.get(task_params["prior_ref"])
         observed_data = ray.get(task_params["observed_data_ref"])
         cfg = OmegaConf.create(task_params["cfg"])
+        
+        CompactModel.setup(
+            m=cfg.problem.m,
+            d=cfg.problem.param_dim,
+            truncation_radius_R=cfg.problem.truncation_radius_R,
+            base_variance=cfg.problem.base_variance,
+            seed=cfg.problem.get("ground_truth_seed", 42)
+        )
         
         nmax = task_params["nmax"]
         n_particles = task_params["n_particles"]
@@ -160,7 +175,7 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
             
         Nsamps_fixed = nmax * np.ones(len(exponents) + 1)
         
-        mcmc = NoisyMetropolisCal()
+        mcmc = RWRegCal()
         move = AdaptiveMCMCSequence(mcmc=mcmc, adaptive=False, len_chain=len_chain)
         
         def run_smc(model, nsamps_arr):

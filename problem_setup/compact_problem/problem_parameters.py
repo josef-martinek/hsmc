@@ -6,7 +6,11 @@ class SamplerConfig:
     problem = "compact"
     data_noise_var = 0.1
 
-    param_dim = 5
+    m = 10
+    param_dim = 5  # Note: param_dim represents 'd'
+    truncation_radius_R = 1.0
+    base_variance = 2.0
+
     ground_truth_par = np.array([0.5, -0.5, 0.2, 0.8, -0.1])
 
     n_particles = 1000

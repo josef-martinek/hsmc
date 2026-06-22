@@ -11,7 +11,7 @@ from particles.core import SMC
 # PROBLEM SELECTION (Compact Problem Density Tracking)
 # ==============================================================================
 
-from problem_setup.compact_problem_density.problem_parameters import SamplerConfig as sc
+from problem_setup.compact_problem.problem_parameters import SamplerConfig as sc
 from problem_setup.compact_problem_density.likelihood_model import CompactModel as ModelExact
 # Adaptive formulation (used with TempAdaptNsampNoRew and TempNsampNoRew)
 from problem_setup.compact_problem_density.likelihood_model import IPModelInexactAdaptHDDensity

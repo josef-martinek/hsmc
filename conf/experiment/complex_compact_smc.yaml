@@ -2,16 +2,19 @@
 
 problem:
   problem: "compact"
-  data_noise_var: 0.1
-  prior_marg_var: 4.0
+  m: 10
+  data_noise_var: 0.4
+  truncation_radius_R: 1.0
+  base_variance: 0.2
+  prior_marg_var: 4.0 #what is this doing here
   param_dim: 5
-  Nmin: 32
-  len_chain: 10
+  Nmin: 32 #Also this
+  len_chain: 10 #Also this
   n_temp_steps: 10
-  gamma_nsamp: 1.25
+  gamma_nsamp: 4
   gamma_temp: 1.5
   N_max: 64.0
-  n_particles: 50
+  n_particles: 50 #Also this
   ground_truth_seed: 42
   prior_a: -2.0
   prior_b: 2.0
@@ -20,9 +23,9 @@ experiment:
   runner:
     _target_: experiments.complex_compact_smc.ComplexCompactSMCExperiment
   ref_sol:
-    len_chain: 10
-    ESSrmin: 0.7
-    N: 1000
+    len_chain: 500
+    ESSrmin: 0.9
+    N: 10000
 
   sweep:
     n_runs: 40
