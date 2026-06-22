@@ -24,7 +24,7 @@ from problem_setup.compact_problem.likelihood_model import IPModelInexactFixHD
 # ==============================================================================
 
 # MCMC mutations (available options: RWRegCal, RWUnc, NoisyMetropolisCal)
-from core.mcmc import NoisyMetropolisCal as MCMCClass
+from core.mcmc import RWRegCal as MCMCClass
 
 from particles.smc_samplers import AdaptiveTempering
 from core.samplers import TempAdaptNsampNoRew
