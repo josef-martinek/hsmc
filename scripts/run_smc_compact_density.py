@@ -16,7 +16,7 @@ from problem_setup.compact_problem_density.likelihood_model import CompactModel 
 # Adaptive formulation (used with TempAdaptNsampNoRew and TempNsampNoRew)
 from problem_setup.compact_problem_density.likelihood_model import IPModelInexactAdaptHDDensity
 # Fixed formulation (used with AdaptiveTempering)
-from problem_setup.compact_problem_density.likelihood_model import IPModelInexactFixHDDensity
+from problem_setup.compact_problem_density.likelihood_model import IPModelInexactFixHDDensity, DummyNoisePrior
 
 from problem_setup.compact_problem_density.kernel_ratio import KernelRatioEvaluator, KernelReweightingMixin
 
@@ -70,7 +70,7 @@ if __name__ == "__main__":
     # Track e by adding a dummy distribution for memory allocation
     prior = dists.StructDist({
         'param': param_dist,
-        'e': dists.MvNormal(loc=np.zeros(m_data), cov=np.eye(m_data))
+        'e': DummyNoisePrior(m_data)
     })
 
     # --- CHOOSE LIKELIHOOD MODEL ---

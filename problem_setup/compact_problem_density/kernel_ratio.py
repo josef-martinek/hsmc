@@ -37,8 +37,7 @@ class KernelReweightingMixin:
             e_particles = x.theta['e']
             log_ratio = self.model.evaluator.evaluate_log_ratio(e_particles, S_prev, S_curr)
             
-            # Update the incremental weight and the posterior
+            # Update the incremental weight
             dl += log_ratio
-            x.lpost += log_ratio
             
         return dl

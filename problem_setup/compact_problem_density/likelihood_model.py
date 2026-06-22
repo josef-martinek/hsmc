@@ -1,5 +1,20 @@
 import numpy as np
 from problem_setup.compact_problem.likelihood_model import CompactModel, IPModelInexactAdapt, IPModelInexactFix, IPModelExact, IPModelInexactAdaptHD, IPModelInexactFixHD
+from particles.distributions import ProbDist
+
+class DummyNoisePrior(ProbDist):
+    """
+    A dummy prior that returns 0.0 for its log-density. 
+    This prevents the exact-approximate MCMC target density from penalizing
+    the structurally sampled noise realization `e`.
+    """
+    def __init__(self, m):
+        self.m = m
+        self.dim = m
+    def rvs(self, size=1):
+        return np.zeros((size, self.m))
+    def logpdf(self, x):
+        return np.zeros(x.shape[0])
 
 class LikelihoodNoiseTrackingMixin:
     """

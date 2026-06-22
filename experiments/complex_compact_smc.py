@@ -142,7 +142,7 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         from particles import distributions as dists
         
         from problem_setup.compact_problem.likelihood_model import IPModelInexactAdaptHD, IPModelInexactFixHD, CompactModel
-        from problem_setup.compact_problem_density.likelihood_model import IPModelInexactAdaptHDDensity, IPModelInexactFixHDDensity
+        from problem_setup.compact_problem_density.likelihood_model import IPModelInexactFixHDDensity, IPModelInexactAdaptHDDensity, DummyNoisePrior
         from problem_setup.compact_problem_density.kernel_ratio import KernelRatioEvaluator, KernelReweightingMixin
         
         run_id = task_params["run_idx"]
@@ -197,8 +197,7 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         
         # 2. Compact Density
         m_data = len(observed_data)
-        noise_prior_scale = np.sqrt(cfg.problem.data_noise_var / 1)
-        prior_e = dists.MvNormal(loc=np.zeros(m_data), cov=noise_prior_scale**2 * np.eye(m_data))
+        prior_e = DummyNoisePrior(m_data)
         a = cfg.problem.prior_a
         b = cfg.problem.prior_b
         param_dim = cfg.problem.param_dim
