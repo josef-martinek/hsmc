@@ -47,9 +47,6 @@ if __name__ == "__main__":
     
     n_particles = sc.n_particles
     len_chain = sc.len_chain
-    ESS_rmin = sc.ESS_rmin
-    ar_tol = sc.ar_tol
-    Nmin = sc.Nmin
 
     # 2. PRIOR DISTRIBUTION SETUP
     # Strictly enforce a uniform prior across all dimensions based on SamplerConfig

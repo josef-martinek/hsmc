@@ -47,9 +47,6 @@ if __name__ == "__main__":
     
     n_particles = sc.n_particles
     len_chain = sc.len_chain
-    ESS_rmin = sc.ESS_rmin
-    ar_tol = sc.ar_tol
-    Nmin = sc.Nmin
 
     # 2. SYNTHETIC DATA GENERATION
     true_sol = ModelExact.exact_sol(ground_truth_par).reshape(-1, 1)

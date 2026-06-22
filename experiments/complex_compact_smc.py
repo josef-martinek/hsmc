@@ -69,6 +69,9 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         ref_ESSrmin = ref_sol_cfg.ESSrmin
         ref_N = ref_sol_cfg.N
         
+        # Seed global numpy for reproducible reference solution MCMC
+        np.random.seed(problem_cfg.ground_truth_seed)
+        
         post_samp_ref_exact = get_ref_sols(
             model_ex, len_chain=ref_len_chain, ESSrmin=ref_ESSrmin, N=ref_N
         )
@@ -82,12 +85,12 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         # Dictionaries to store results: w1[problem][method][np_val] = np.zeros((len(Nmax_seq), n_runs))
         self.results_w1 = {
             "compact": {"adapt": {}, "std": {}},
-            "density": {"adapt": {}, "std": {}}
+            "density": {"adapt": {}}
         }
         for np_val in self.n_particles_seq:
-            for prob in ["compact", "density"]:
-                for method in ["adapt", "std"]:
-                    self.results_w1[prob][method][np_val] = np.zeros((len(self.Nmax_seq), self.n_runs))
+            self.results_w1["compact"]["adapt"][np_val] = np.zeros((len(self.Nmax_seq), self.n_runs))
+            self.results_w1["compact"]["std"][np_val] = np.zeros((len(self.Nmax_seq), self.n_runs))
+            self.results_w1["density"]["adapt"][np_val] = np.zeros((len(self.Nmax_seq), self.n_runs))
         
         self.cost_adapt = []
         self.cost_fixed = []
@@ -208,7 +211,6 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         m_dens_adapt = IPModelInexactAdaptHDDensity(prior=prior_dens, data_noise_cov=cfg.problem.data_noise_var, data=observed_data)
         m_dens_adapt.evaluator = KernelRatioEvaluator(CompactModel)
         results["density_adapt"] = run_smc(m_dens_adapt, Nsamps_adapt, sampler_class=DensityTempNsampNoRew)
-        results["density_std"] = run_smc(m_dens_adapt, Nsamps_fixed, sampler_class=DensityTempNsampNoRew)
         
         return task_params["nmax_idx"], task_params["n_particles"], task_params["run_idx"], results
 
@@ -222,7 +224,6 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         self.results_w1["compact"]["adapt"][np_val][nmax_idx, run_idx] = calc_w1(res_dict["compact_adapt"])
         self.results_w1["compact"]["std"][np_val][nmax_idx, run_idx] = calc_w1(res_dict["compact_std"])
         self.results_w1["density"]["adapt"][np_val][nmax_idx, run_idx] = calc_w1(res_dict["density_adapt"])
-        self.results_w1["density"]["std"][np_val][nmax_idx, run_idx] = calc_w1(res_dict["density_std"])
 
     def save_results(self, output_dir):
         z_val = 1.96
@@ -233,74 +234,81 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
             
         colors = {50: 'orange', 100: 'blue', 200: 'green'}
         
-        def plot_problem(prob_name, title):
-            fig1, ax1 = plt.subplots(1, 1, figsize=(8, 6))
-            fig2, ax2 = plt.subplots(1, 1, figsize=(8, 6))
+        # 1. Error Plot
+        fig1, ax1 = plt.subplots(1, 1, figsize=(10, 8))
+        
+        for np_val in self.n_particles_seq:
+            color = colors[np_val]
             
-            for np_val in self.n_particles_seq:
-                color = colors[np_val]
-                
-                # Adapt
-                w1_a = self.results_w1[prob_name]["adapt"][np_val]
-                mean_a = np.mean(w1_a, axis=1)
-                ci_a = z_val * np.std(w1_a, axis=1, ddof=1) / np.sqrt(self.n_runs)
-                ax1.errorbar(self.Nmax_seq, mean_a, yerr=get_asym_yerr(mean_a, ci_a),
-                             marker='o', linestyle='-', color=color, capsize=5, linewidth=2.5, elinewidth=2.5, markersize=8)
-                
-                # Std
-                w1_s = self.results_w1[prob_name]["std"][np_val]
-                mean_s = np.mean(w1_s, axis=1)
-                ci_s = z_val * np.std(w1_s, axis=1, ddof=1) / np.sqrt(self.n_runs)
-                ax1.errorbar(self.Nmax_seq, mean_s, yerr=get_asym_yerr(mean_s, ci_s),
-                             marker='s', linestyle='--', color=color, capsize=5, linewidth=2.5, elinewidth=2.5, markersize=8)
+            # compact_adapt
+            w1_ca = self.results_w1["compact"]["adapt"][np_val]
+            mean_ca = np.mean(w1_ca, axis=1)
+            ci_ca = z_val * np.std(w1_ca, axis=1, ddof=1) / np.sqrt(self.n_runs)
+            ax1.errorbar(self.Nmax_seq, mean_ca, yerr=get_asym_yerr(mean_ca, ci_ca),
+                         marker='o', linestyle='-', color=color, capsize=5, linewidth=2.5, elinewidth=2.5, markersize=8)
             
-            ax1.set_xscale('log'); ax1.set_yscale('log')
-            ax1.set_xticks(self.Nmax_seq); ax1.get_xaxis().set_major_formatter(plt.ScalarFormatter())
-            ax1.tick_params(axis='both', which='major', labelsize=16)
-            ax1.set_xlabel('$S_{max}$', fontsize=20)
-            ax1.set_ylabel('Mean Wasserstein-1 Distance', fontsize=20)
-            ax1.set_title(f'W1 Distance - {title} (Complex)', fontsize=20)
-            ax1.grid(True, which="both", linestyle="--", alpha=0.6)
-            
-            from matplotlib.lines import Line2D
-            legend_elements = [
-                Line2D([0], [0], color='black', marker='o', linestyle='-', linewidth=2.5, markersize=8, label='Adaptive'),
-                Line2D([0], [0], color='black', marker='s', linestyle='--', linewidth=2.5, markersize=8, label='Standard')
-            ]
-            for np_val in self.n_particles_seq:
-                legend_elements.append(Line2D([0], [0], color=colors[np_val], linewidth=2.5, label=f'$N = {np_val}$'))
-                
-            ax1.legend(handles=legend_elements, fontsize=14)
-            
-            # Cost plot
-            ax2.plot(self.Nmax_seq, self.cost_adapt, marker='o', linestyle='-', color='black', linewidth=2.5, markersize=8, label='Adaptive')
-            ax2.plot(self.Nmax_seq, self.cost_fixed, marker='s', linestyle='--', color='black', linewidth=2.5, markersize=8, label='Standard')
-            
-            anchor_nmax = self.Nmax_seq[-1]
-            anchor_cost = self.cost_adapt[-1]
-            slope_nmax = [anchor_cost * (n / anchor_nmax) for n in self.Nmax_seq]
-            slope_tnmax = [anchor_cost * (n / anchor_nmax) * self.len_chain for n in self.Nmax_seq]
-            
-            ax2.plot(self.Nmax_seq, slope_nmax, linestyle=':', color='black', linewidth=2, label=r'$\mathcal{O}(S_{max})$')
-            ax2.plot(self.Nmax_seq, slope_tnmax, linestyle=':', color='black', linewidth=2, label=r'$\mathcal{O}(T \cdot S_{max})$')
+            # compact_std
+            w1_cs = self.results_w1["compact"]["std"][np_val]
+            mean_cs = np.mean(w1_cs, axis=1)
+            ci_cs = z_val * np.std(w1_cs, axis=1, ddof=1) / np.sqrt(self.n_runs)
+            ax1.errorbar(self.Nmax_seq, mean_cs, yerr=get_asym_yerr(mean_cs, ci_cs),
+                         marker='s', linestyle='--', color=color, capsize=5, linewidth=2.5, elinewidth=2.5, markersize=8)
+                         
+            # density_adapt
+            w1_da = self.results_w1["density"]["adapt"][np_val]
+            mean_da = np.mean(w1_da, axis=1)
+            ci_da = z_val * np.std(w1_da, axis=1, ddof=1) / np.sqrt(self.n_runs)
+            ax1.errorbar(self.Nmax_seq, mean_da, yerr=get_asym_yerr(mean_da, ci_da),
+                         marker='^', linestyle=':', color=color, capsize=5, linewidth=2.5, elinewidth=2.5, markersize=8)
+        
+        ax1.set_xscale('log'); ax1.set_yscale('log')
+        ax1.set_xticks(self.Nmax_seq); ax1.get_xaxis().set_major_formatter(plt.ScalarFormatter())
+        ax1.tick_params(axis='both', which='major', labelsize=16)
+        ax1.set_xlabel('$S_{max}$', fontsize=20)
+        ax1.set_ylabel('Mean Wasserstein-1 Distance', fontsize=20)
+        ax1.set_title('W1 Distance - SMC Samplers', fontsize=20)
+        ax1.grid(True, which="both", linestyle="--", alpha=0.6)
+        
+        from matplotlib.lines import Line2D
+        alg_elements = [
+            Line2D([0], [0], color='black', marker='o', linestyle='-', linewidth=2.5, markersize=8, label='Compact Adapt'),
+            Line2D([0], [0], color='black', marker='s', linestyle='--', linewidth=2.5, markersize=8, label='Compact Std'),
+            Line2D([0], [0], color='black', marker='^', linestyle=':', linewidth=2.5, markersize=8, label='Density Adapt')
+        ]
+        part_elements = [Line2D([0], [0], color=colors[n], linewidth=2.5, label=f'$N = {n}$') for n in self.n_particles_seq]
+        
+        leg1 = ax1.legend(handles=alg_elements, loc='upper right', fontsize=14, title="Algorithms")
+        ax1.add_artist(leg1)
+        ax1.legend(handles=part_elements, loc='lower left', fontsize=14, title="Particles")
+        
+        fig1.tight_layout()
+        fig1.savefig(os.path.join(output_dir, 'w1_distance_combined.pdf'))
+        
+        # 2. Cost Plot
+        fig2, ax2 = plt.subplots(1, 1, figsize=(8, 6))
+        
+        ax2.plot(self.Nmax_seq, self.cost_adapt, marker='o', linestyle='-', color='black', linewidth=2.5, markersize=8, label='Adaptive')
+        ax2.plot(self.Nmax_seq, self.cost_fixed, marker='s', linestyle='--', color='black', linewidth=2.5, markersize=8, label='Standard')
+        
+        anchor_nmax = self.Nmax_seq[-1]
+        anchor_cost = self.cost_adapt[-1]
+        slope_nmax = [anchor_cost * (n / anchor_nmax) for n in self.Nmax_seq]
+        slope_tnmax = [anchor_cost * (n / anchor_nmax) * self.len_chain for n in self.Nmax_seq]
+        
+        ax2.plot(self.Nmax_seq, slope_nmax, linestyle=':', color='black', linewidth=2, label=r'$\mathcal{O}(S_{max})$')
+        ax2.plot(self.Nmax_seq, slope_tnmax, linestyle=':', color='black', linewidth=2, label=r'$\mathcal{O}(T \cdot S_{max})$')
 
-            ax2.set_xscale('log'); ax2.set_yscale('log')
-            ax2.set_xticks(self.Nmax_seq); ax2.get_xaxis().set_major_formatter(plt.ScalarFormatter())
-            ax2.tick_params(axis='both', which='major', labelsize=16)
-            ax2.set_xlabel('$S_{max}$', fontsize=20)
-            ax2.set_ylabel('Cost per particle', fontsize=20)
-            ax2.set_title(f'Cost per particle - {title}', fontsize=20)
-            ax2.grid(True, which="both", linestyle="--", alpha=0.6)
-            ax2.legend(fontsize=16)
+        ax2.set_xscale('log'); ax2.set_yscale('log')
+        ax2.set_xticks(self.Nmax_seq); ax2.get_xaxis().set_major_formatter(plt.ScalarFormatter())
+        ax2.tick_params(axis='both', which='major', labelsize=16)
+        ax2.set_xlabel('$S_{max}$', fontsize=20)
+        ax2.set_ylabel('Cost per particle', fontsize=20)
+        ax2.set_title('Cost per particle', fontsize=20)
+        ax2.grid(True, which="both", linestyle="--", alpha=0.6)
+        ax2.legend(fontsize=16)
 
-            fig1.tight_layout()
-            fig2.tight_layout()
-            
-            fig1.savefig(os.path.join(output_dir, f'w1_distance_{prob_name}.pdf'))
-            fig2.savefig(os.path.join(output_dir, f'cost_{prob_name}.pdf'))
-            
-        plot_problem("compact", "Compact")
-        plot_problem("density", "Compact Density")
+        fig2.tight_layout()
+        fig2.savefig(os.path.join(output_dir, 'cost_combined.pdf'))
         
         # Save npz
         save_dict = {
@@ -309,10 +317,10 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
             "cost_adapt": np.array(self.cost_adapt),
             "cost_fixed": np.array(self.cost_fixed)
         }
-        for prob in ["compact", "density"]:
-            for method in ["adapt", "std"]:
-                for np_val in self.n_particles_seq:
-                    save_dict[f"w1_{prob}_{method}_{np_val}"] = self.results_w1[prob][method][np_val]
+        for np_val in self.n_particles_seq:
+            save_dict[f"w1_compact_adapt_{np_val}"] = self.results_w1["compact"]["adapt"][np_val]
+            save_dict[f"w1_compact_std_{np_val}"] = self.results_w1["compact"]["std"][np_val]
+            save_dict[f"w1_density_adapt_{np_val}"] = self.results_w1["density"]["adapt"][np_val]
                     
         out_file = os.path.join(output_dir, "smc_results.npz")
         np.savez_compressed(out_file, **save_dict)
