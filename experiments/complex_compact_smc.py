@@ -30,9 +30,9 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         self.n_runs = sweep_cfg.n_runs
         self.Nmax_seq = list(sweep_cfg.Nmax_seq)
         self.n_particles_seq = list(sweep_cfg.n_particles_seq)
-        self.len_chain_seq = list(sweep_cfg.get("len_chain_seq", [problem_cfg.len_chain]))
-        self.gamma_nsamp_seq = list(sweep_cfg.get("gamma_nsamp_seq", [problem_cfg.gamma_nsamp]))
-        self.n_temp_steps_seq = list(sweep_cfg.get("n_temp_steps_seq", [problem_cfg.n_temp_steps]))
+        self.len_chain_seq = list(sweep_cfg.len_chain_seq)
+        self.gamma_nsamp_seq = list(sweep_cfg.gamma_nsamp_seq)
+        self.n_temp_steps_seq = list(sweep_cfg.n_temp_steps_seq)
         
         self.param_dim = problem_cfg.param_dim
         
