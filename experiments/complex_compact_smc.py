@@ -82,7 +82,7 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         # Put shared variables into Ray object store
         self.prior_ref = ray.put(prior)
         self.observed_data_ref = ray.put(observed_data)
-        self.post_samp_ref_exact = post_samp_ref_exact
+        self.post_samp_ref_exact_ref = ray.put(post_samp_ref_exact)
         
         # Dictionaries to store results: w1[problem][method][np_val] = np.zeros((len(Nmax_seq), n_runs))
         shape = (len(self.len_chain_seq), len(self.gamma_nsamp_seq), len(self.n_temp_steps_seq), len(self.n_particles_seq), len(self.Nmax_seq), self.n_runs)
@@ -153,6 +153,7 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
                                     "run_idx": run_idx,
                                     "prior_ref": self.prior_ref,
                                     "observed_data_ref": self.observed_data_ref,
+                                    "post_samp_ref_exact_ref": self.post_samp_ref_exact_ref,
                                     "cfg": cfg_dict
                                 })
         return tasks
@@ -160,6 +161,7 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
     @staticmethod
     def run_task(task_params):
         import numpy as np
+        from scipy.stats import wasserstein_distance
         from omegaconf import OmegaConf
         from particles.smc_samplers import AdaptiveMCMCSequence
         from particles.core import SMC
@@ -176,6 +178,7 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         
         prior = ray.get(task_params["prior_ref"])
         observed_data = ray.get(task_params["observed_data_ref"])
+        post_samp_ref_exact = ray.get(task_params["post_samp_ref_exact_ref"])
         cfg = OmegaConf.create(task_params["cfg"])
         
         CompactModel.setup(
@@ -215,7 +218,11 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
             acc_rates = np.array([np.mean(ar) for ar in acc_rates_list]) if acc_rates_list else np.array([])
             exps = np.array(smc.X.shared.get("exponents", []))
             
-            return np.array(smc.X.theta['param']), ess, acc_rates, exps
+            param_samples = np.array(smc.X.theta['param'])
+            w1_vals = [wasserstein_distance(param_samples[:, i], post_samp_ref_exact[:, i]) for i in range(cfg.problem.param_dim)]
+            w1_mean = np.mean(w1_vals)
+            
+            return w1_mean, ess, acc_rates, exps
             
         results = {}
         
@@ -249,17 +256,13 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         nts_idx = task_params["n_temp_steps_idx"]
         np_idx = task_params["n_particles_idx"]
         
-        def calc_w1(samples):
-            w1_vals = [wasserstein_distance(samples[:, i], self.post_samp_ref_exact[:, i]) for i in range(self.param_dim)]
-            return np.mean(w1_vals)
-            
         for prob, method, key in [
             ("compact", "adapt", "compact_adapt"),
             ("compact", "std", "compact_std"),
             ("density", "adapt", "density_adapt")
         ]:
-            param_samples, ess, acc_rates, exps = res_dict[key]
-            self.results_w1[prob][method][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, run_idx] = calc_w1(param_samples)
+            w1_mean, ess, acc_rates, exps = res_dict[key]
+            self.results_w1[prob][method][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, run_idx] = w1_mean
             
             n_temp_steps = task_params["n_temp_steps"]
             self.results_stats[prob][method]["ESS"][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, run_idx, :n_temp_steps] = ess
