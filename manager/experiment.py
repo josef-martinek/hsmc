@@ -127,29 +127,40 @@ class ExperimentManager:
         import time
         start_time = time.time()
         remote_task = ray.remote(self.runner.run_task)
-        futures = {remote_task.remote(task): task for task in tasks}
-
-        # 6. Asynchronous Collection
-        pending = list(futures.keys())
-        total_tasks = len(pending)
+        
+        WAVE_SIZE = 5000
+        BATCH_SIZE = 500
+        
+        total_tasks = len(tasks)
         done_tasks = 0
 
         print(f"Starting asynchronous collection of {total_tasks} tasks...")
-        while pending:
-            ready, pending = ray.wait(pending, num_returns=1)
-            ref = ready[0]
-            task_params = futures[ref]
-            try:
-                result = ray.get(ref)
-                self.runner.process_result(task_params, result)
-            except Exception as e:
-                print(f"Error processing task with params {task_params}: {e}")
-                raise e
-
-            done_tasks += 1
-            if done_tasks % max(1, total_tasks // 100) == 0 or done_tasks == total_tasks:
-                elapsed_time = time.time() - start_time
-                print(f"[{done_tasks}/{total_tasks}] tasks completed in {elapsed_time:.2f}s.")
+        
+        for i in range(0, total_tasks, WAVE_SIZE):
+            wave_tasks = tasks[i:i + WAVE_SIZE]
+            
+            # Submit current wave
+            futures = {remote_task.remote(task): task for task in wave_tasks}
+            pending = list(futures.keys())
+            
+            # Collect current wave
+            while pending:
+                num_to_wait = min(BATCH_SIZE, len(pending))
+                ready, pending = ray.wait(pending, num_returns=num_to_wait)
+                
+                for ref in ready:
+                    task_params = futures.pop(ref)
+                    try:
+                        result = ray.get(ref)
+                        self.runner.process_result(task_params, result)
+                    except Exception as e:
+                        print(f"Error processing task with params {task_params}: {e}")
+                        raise e
+                    
+                    done_tasks += 1
+                    if done_tasks % max(1, total_tasks // 100) == 0 or done_tasks == total_tasks:
+                        elapsed_time = time.time() - start_time
+                        print(f"[{done_tasks}/{total_tasks}] tasks completed in {elapsed_time:.2f}s.")
 
         # 7. Save results
         print(f"Saving final aggregated results to {output_dir}...")
