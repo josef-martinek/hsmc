@@ -98,8 +98,8 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         max_t = max(self.n_temp_steps_seq)
         for prob, method in [("compact", "adapt"), ("compact", "std"), ("density", "adapt")]:
             self.results_stats[prob][method] = {
-                "ESS": np.full((*shape, max_t), np.nan),
-                "acc_rate": np.full((*shape, max_t - 1), np.nan),
+                "ESS": np.full((*shape, max_t + 1), np.nan),
+                "acc_rate": np.full((*shape, max_t), np.nan),
                 "exponents": np.full((*shape[:-1], max_t + 1), np.nan)
             }
         
@@ -212,6 +212,8 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
             fk = sampler_class(model=model, wastefree=False, move=move, exponents=exponents, Nsamps=nsamps_arr)
             smc = SMC(fk=fk, N=n_particles, ESSrmin=1.0, verbose=False)
             smc.run()
+            smc.setup_auxiliary_weights()
+            smc.resample_move()
             
             ess = np.array(smc.summaries.ESSs)
             acc_rates_list = smc.X.shared.get("acc_rates", [])
@@ -264,14 +266,17 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
             w1_mean, ess, acc_rates, exps = res_dict[key]
             self.results_w1[prob][method][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, run_idx] = w1_mean
             
-            n_temp_steps = task_params["n_temp_steps"]
-            self.results_stats[prob][method]["ESS"][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, run_idx, :n_temp_steps] = ess
-            if len(acc_rates) > 0:
-                self.results_stats[prob][method]["acc_rate"][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, run_idx, :n_temp_steps - 1] = acc_rates
+            n_ess = len(ess)
+            self.results_stats[prob][method]["ESS"][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, run_idx, :n_ess] = ess
+            
+            n_acc = len(acc_rates)
+            if n_acc > 0:
+                self.results_stats[prob][method]["acc_rate"][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, run_idx, :n_acc] = acc_rates
                 
             # Only need to store exponents once per configuration since it's identical
             if run_idx == 0:
-                self.results_stats[prob][method]["exponents"][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, :n_temp_steps + 1] = exps
+                n_exps = len(exps)
+                self.results_stats[prob][method]["exponents"][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, :n_exps] = exps
 
     def save_results(self, output_dir):
         z_val = 1.96
@@ -398,8 +403,12 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
                                     exps = stats["exponents"][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, :n_temp_steps+1]
                                     
                                     # Calculate means over runs, ignoring NaNs
-                                    mean_ess = np.nanmean(stats["ESS"][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, :, :n_temp_steps], axis=0) # shape: (n_temp_steps,)
-                                    mean_acc = np.nanmean(stats["acc_rate"][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, :, :n_temp_steps-1], axis=0) # shape: (n_temp_steps - 1,)
+                                    mean_ess = np.nanmean(stats["ESS"][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, :, :], axis=0)
+                                    mean_acc = np.nanmean(stats["acc_rate"][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, :, :], axis=0)
+                                    
+                                    # Remove trailing NaNs
+                                    mean_ess = mean_ess[~np.isnan(mean_ess)]
+                                    mean_acc = mean_acc[~np.isnan(mean_acc)]
                                     
                                     f.write("=" * 80 + "\n")
                                     f.write(f"Algorithm: {key} | Nmax: {nmax} | Particles: {np_val} | len_chain: {len_chain} | gamma: {gamma_nsamp} | n_temp_steps: {n_temp_steps}\n")
