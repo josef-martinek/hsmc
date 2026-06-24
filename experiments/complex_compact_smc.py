@@ -374,7 +374,7 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
                         anchor_nmax = self.Nmax_seq[-1]
                         anchor_cost = cost_a[-1]
                         slope_nmax = [anchor_cost * (n / anchor_nmax) for n in self.Nmax_seq]
-                        slope_tnmax = [anchor_cost * (n / anchor_nmax) * len_chain for n in self.Nmax_seq]
+                        slope_tnmax = [anchor_cost * (n / anchor_nmax) * n_temp_steps for n in self.Nmax_seq]
                         
                         ax2.plot(self.Nmax_seq, slope_nmax, linestyle=':', color='black', linewidth=2, label=r'$\mathcal{O}(S_{max})$')
                         ax2.plot(self.Nmax_seq, slope_tnmax, linestyle=':', color='black', linewidth=2, label=r'$\mathcal{O}(T \cdot S_{max})$')
