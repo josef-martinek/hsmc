@@ -427,16 +427,16 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
                                     
                                     n_steps = len(mean_ess)
                                     for t in range(n_steps):
-                                        exp_val = exps[t + 1] if exps is not None else 0.0
+                                        exp_val = exps[t + 1] if (t + 1) < len(exps) else 0.0
                                         ess_val = mean_ess[t]
                                         
-                                        if t == 0:
-                                            acc_str = "N/A"
-                                        else:
-                                            acc_val = mean_acc[t - 1]
+                                        if t < len(mean_acc):
+                                            acc_val = mean_acc[t]
                                             acc_str = f"{acc_val:.3f}"
+                                        else:
+                                            acc_str = "N/A"
                                             
-                                        nsamp_val = nsamps_used[t] if t < len(nsamps_used) else 0.0
+                                        nsamp_val = nsamps_used[t + 1] if (t + 1) < len(nsamps_used) else 0.0
                                             
                                         f.write(f"{t:4d} | {exp_val:15.5f} | {ess_val:10.2f} | {acc_str:>15} | {nsamp_val:10.2f}\n")
                                     f.write("\n")
