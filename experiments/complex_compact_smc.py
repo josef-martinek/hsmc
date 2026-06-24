@@ -101,7 +101,8 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
             self.results_stats[prob][method] = {
                 "ESS": np.full((*shape, max_t + 1), np.nan),
                 "acc_rate": np.full((*shape, max_t), np.nan),
-                "exponents": np.full((*shape[:-1], max_t + 1), np.nan)
+                "exponents": np.full((*shape[:-1], max_t + 1), np.nan),
+                "nsamps": np.full((*shape[:-1], max_t + 1), np.nan)
             }
         
         self.cost_adapt = np.zeros((len(self.len_chain_seq), len(self.gamma_nsamp_seq), len(self.n_temp_steps_seq), len(self.Nmax_seq)))
@@ -222,12 +223,13 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
             acc_rates_list = smc.X.shared.get("acc_rates", [])
             acc_rates = np.array([np.mean(ar) for ar in acc_rates_list]) if acc_rates_list else np.array([])
             exps = np.array(smc.X.shared.get("exponents", []))
+            nsamps = np.array(smc.X.shared.get("solver_nsamp", []))
             
             param_samples = np.array(smc.X.theta['param'])
             w1_vals = [wasserstein_distance(param_samples[:, i], post_samp_ref_exact[:, i]) for i in range(cfg.problem.param_dim)]
             w1_mean = np.mean(w1_vals)
             
-            return w1_mean, ess, acc_rates, exps
+            return w1_mean, ess, acc_rates, exps, nsamps
             
         results = {}
         
@@ -266,7 +268,7 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
             ("compact", "std", "compact_std"),
             ("density", "adapt", "density_adapt")
         ]:
-            w1_mean, ess, acc_rates, exps = res_dict[key]
+            w1_mean, ess, acc_rates, exps, nsamps = res_dict[key]
             self.results_w1[prob][method][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, run_idx] = w1_mean
             
             n_ess = len(ess)
@@ -276,10 +278,12 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
             if n_acc > 0:
                 self.results_stats[prob][method]["acc_rate"][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, run_idx, :n_acc] = acc_rates
                 
-            # Only need to store exponents once per configuration since it's identical
+            # Only need to store exponents and nsamps once per configuration since it's identical
             if run_idx == 0:
                 n_exps = len(exps)
                 self.results_stats[prob][method]["exponents"][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, :n_exps] = exps
+                n_nsamps = len(nsamps)
+                self.results_stats[prob][method]["nsamps"][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, :n_nsamps] = nsamps
 
     def save_results(self, output_dir):
         z_val = 1.96
@@ -405,6 +409,7 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
                                 for nmax_idx, nmax in enumerate(self.Nmax_seq):
                                     stats = self.results_stats[prob][method]
                                     exps = stats["exponents"][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, :n_temp_steps+1]
+                                    nsamps_used = stats["nsamps"][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, :n_temp_steps+1]
                                     
                                     # Calculate means over runs, ignoring NaNs
                                     mean_ess = np.nanmean(stats["ESS"][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, :, :], axis=0)
@@ -416,9 +421,9 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
                                     
                                     f.write("=" * 80 + "\n")
                                     f.write(f"Algorithm: {key} | Nmax: {nmax} | Particles: {np_val} | len_chain: {len_chain} | gamma: {gamma_nsamp} | n_temp_steps: {n_temp_steps}\n")
-                                    f.write("=" * 80 + "\n")
-                                    f.write(f"{'Step':>4} | {'Target Exponent':>15} | {'Avg ESS':>10} | {'Avg Acc. Rate':>15}\n")
-                                    f.write("-" * 80 + "\n")
+                                    f.write("=" * 95 + "\n")
+                                    f.write(f"{'Step':>4} | {'Target Exponent':>15} | {'Avg ESS':>10} | {'Avg Acc. Rate':>15} | {'Samples':>10}\n")
+                                    f.write("-" * 95 + "\n")
                                     
                                     n_steps = len(mean_ess)
                                     for t in range(n_steps):
@@ -431,7 +436,9 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
                                             acc_val = mean_acc[t - 1]
                                             acc_str = f"{acc_val:.3f}"
                                             
-                                        f.write(f"{t:4d} | {exp_val:15.5f} | {ess_val:10.2f} | {acc_str:>15}\n")
+                                        nsamp_val = nsamps_used[t] if t < len(nsamps_used) else 0.0
+                                            
+                                        f.write(f"{t:4d} | {exp_val:15.5f} | {ess_val:10.2f} | {acc_str:>15} | {nsamp_val:10.2f}\n")
                                     f.write("\n")
             
         print(f"Stats summary saved to {stats_file}")
