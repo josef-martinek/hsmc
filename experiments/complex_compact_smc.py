@@ -33,6 +33,7 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         self.len_chain_seq = list(sweep_cfg.len_chain_seq)
         self.gamma_nsamp_seq = list(sweep_cfg.gamma_nsamp_seq)
         self.n_temp_steps_seq = list(sweep_cfg.n_temp_steps_seq)
+        self.nsamp_min = cfg.experiment.nsamp_min
         
         self.param_dim = problem_cfg.param_dim
         
@@ -121,7 +122,7 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
                         # Adaptive cost
                         nsamp_sched = np.zeros(n_temp_steps + 1)
                         for t in range(n_temp_steps, -1, -1):
-                            nsamp_sched[t] = nmax / (gamma_nsamp ** (n_temp_steps - t))
+                            nsamp_sched[t] = max(nmax / (gamma_nsamp ** (n_temp_steps - t)), self.nsamp_min)
                         
                         c_adapt = nsamp_sched[0]
                         for t in range(1, T_exponents + 1):
@@ -148,6 +149,7 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
                                     "n_temp_steps_idx": nts_idx,
                                     "nmax": nmax,
                                     "nmax_idx": nmax_idx,
+                                    "nsamp_min": self.nsamp_min,
                                     "n_particles": np_val,
                                     "n_particles_idx": np_idx,
                                     "run_idx": run_idx,
@@ -190,6 +192,7 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         )
         
         nmax = task_params["nmax"]
+        nsamp_min = task_params["nsamp_min"]
         n_particles = task_params["n_particles"]
         
         gamma_temp = cfg.problem.gamma_temp
@@ -201,7 +204,7 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         
         Nsamps_adapt = np.zeros(n_temp_steps + 1)
         for t in range(n_temp_steps, -1, -1):
-            Nsamps_adapt[t] = nmax / (gamma_nsamp ** (n_temp_steps - t))
+            Nsamps_adapt[t] = max(nmax / (gamma_nsamp ** (n_temp_steps - t)), nsamp_min)
             
         Nsamps_fixed = nmax * np.ones(len(exponents) + 1)
         

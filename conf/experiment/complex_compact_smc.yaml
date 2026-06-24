@@ -12,6 +12,7 @@ problem:
   prior_b: 1.
 
 experiment:
+  nsamp_min: 1
   runner:
     _target_: experiments.complex_compact_smc.ComplexCompactSMCExperiment
   ref_sol:
