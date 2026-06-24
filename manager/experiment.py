@@ -133,6 +133,8 @@ class ExperimentManager:
         
         total_tasks = len(tasks)
         done_tasks = 0
+        last_printed_tasks = 0
+        print_interval = max(1, total_tasks // 40)
 
         print(f"Starting asynchronous collection of {total_tasks} tasks...")
         
@@ -158,9 +160,11 @@ class ExperimentManager:
                         raise e
                     
                     done_tasks += 1
-                    if done_tasks % max(1, total_tasks // 100) == 0 or done_tasks == total_tasks:
-                        elapsed_time = time.time() - start_time
-                        print(f"[{done_tasks}/{total_tasks}] tasks completed in {elapsed_time:.2f}s.")
+                
+                if done_tasks - last_printed_tasks >= print_interval or done_tasks == total_tasks:
+                    elapsed_time = time.time() - start_time
+                    print(f"[{done_tasks}/{total_tasks}] tasks completed in {elapsed_time:.2f}s.")
+                    last_printed_tasks = done_tasks
 
         # 7. Save results
         print(f"Saving final aggregated results to {output_dir}...")
