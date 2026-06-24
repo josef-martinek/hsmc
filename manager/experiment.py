@@ -76,9 +76,15 @@ class ExperimentManager:
             output_dir = info.create_results_folder(base_dir=base_dir)
             print(f"Created results folder: {output_dir}")
             from omegaconf import OmegaConf
+            
+            keys_to_export = ["problem", "experiment"]
+            export_dict = {k: self.cfg[k] for k in keys_to_export if k in self.cfg}
+            export_cfg = OmegaConf.create(export_dict)
+            
             setup_file = os.path.join(output_dir, "setup.yaml")
             with open(setup_file, "w") as f:
-                f.write(OmegaConf.to_yaml(self.cfg, resolve=True))
+                f.write("# @package _global_\n\n")
+                f.write(OmegaConf.to_yaml(export_cfg, resolve=True))
             
             self._export_files(output_dir)
 
@@ -104,9 +110,15 @@ class ExperimentManager:
 
         # Save setup configuration
         from omegaconf import OmegaConf
+        
+        keys_to_export = ["problem", "experiment"]
+        export_dict = {k: self.cfg[k] for k in keys_to_export if k in self.cfg}
+        export_cfg = OmegaConf.create(export_dict)
+        
         setup_file = os.path.join(output_dir, "setup.yaml")
         with open(setup_file, "w") as f:
-            f.write(OmegaConf.to_yaml(self.cfg, resolve=True))
+            f.write("# @package _global_\n\n")
+            f.write(OmegaConf.to_yaml(export_cfg, resolve=True))
 
         self._export_files(output_dir)
 
