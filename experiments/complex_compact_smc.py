@@ -285,7 +285,8 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
             lower_bound = np.clip(mean_vals - ci_vals, 1e-12, None)
             return [mean_vals - lower_bound, ci_vals]
             
-        colors = {50: 'orange', 100: 'blue', 200: 'green'}
+        default_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+        colors = {n: default_colors[i % len(default_colors)] for i, n in enumerate(self.n_particles_seq)}
         
         # Save npz once with the full 6D arrays
         save_dict = {
