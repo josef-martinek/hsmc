@@ -48,6 +48,16 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         else:
             prior = dists.StructDist({'param': dists.IndepProd(*(dists.Uniform(a=a, b=b) for _ in range(self.param_dim)))})
         
+        # Set up the CompactModel with configurations from yaml
+        from problem_setup.compact_problem.likelihood_model import IPModelExactHD, CompactModel
+        CompactModel.setup(
+            m=problem_cfg.m,
+            d=problem_cfg.param_dim,
+            truncation_radius_R=problem_cfg.truncation_radius_R,
+            base_variance=problem_cfg.base_variance,
+            seed=problem_cfg.ground_truth_seed
+        )
+
         # Generate observed data
         true_sol = ModelExact.exact_sol(self.ground_truth_par).reshape(-1, 1)
         rng_data = np.random.default_rng(seed=81)
@@ -57,14 +67,6 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         
         # Compute exact posterior samples (Reference Solution)
         print("Computing exact reference solutions...")
-        from problem_setup.compact_problem.likelihood_model import IPModelExactHD, CompactModel
-        CompactModel.setup(
-            m=problem_cfg.m,
-            d=problem_cfg.param_dim,
-            truncation_radius_R=problem_cfg.truncation_radius_R,
-            base_variance=problem_cfg.base_variance,
-            seed=problem_cfg.ground_truth_seed
-        )
         model_ex = IPModelExactHD(prior=prior, data_noise_cov=problem_cfg.data_noise_var, data=observed_data)
         
         ref_sol_cfg = cfg.experiment.ref_sol
