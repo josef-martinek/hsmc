@@ -121,9 +121,14 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
                         self.cost_fixed[lc_idx, gns_idx, nts_idx, nmax_idx] = c_fixed
                         
                         # Adaptive cost
+                        smallest_nsamp = nmax / (gamma_nsamp ** n_temp_steps)
                         nsamp_sched = np.zeros(n_temp_steps + 1)
-                        for t in range(n_temp_steps, -1, -1):
-                            nsamp_sched[t] = max(nmax / (gamma_nsamp ** (n_temp_steps - t)), self.nsamp_min)
+                        if smallest_nsamp > self.nsamp_min:
+                            for t in range(n_temp_steps, -1, -1):
+                                nsamp_sched[t] = nmax / (gamma_nsamp ** (n_temp_steps - t))
+                        else:
+                            for t in range(n_temp_steps, -1, -1):
+                                nsamp_sched[t] = min(self.nsamp_min * (gamma_nsamp ** t), nmax)
                         
                         c_adapt = nsamp_sched[0]
                         for t in range(1, T_exponents + 1):
@@ -203,9 +208,14 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         
         exponents = np.array([(gamma_temp**t - 1) / (gamma_temp**n_temp_steps - 1) for t in range(1, n_temp_steps + 1)])
         
+        smallest_nsamp = nmax / (gamma_nsamp ** n_temp_steps)
         Nsamps_adapt = np.zeros(n_temp_steps + 1)
-        for t in range(n_temp_steps, -1, -1):
-            Nsamps_adapt[t] = max(nmax / (gamma_nsamp ** (n_temp_steps - t)), nsamp_min)
+        if smallest_nsamp > nsamp_min:
+            for t in range(n_temp_steps, -1, -1):
+                Nsamps_adapt[t] = nmax / (gamma_nsamp ** (n_temp_steps - t))
+        else:
+            for t in range(n_temp_steps, -1, -1):
+                Nsamps_adapt[t] = min(nsamp_min * (gamma_nsamp ** t), nmax)
             
         Nsamps_fixed = nmax * np.ones(len(exponents) + 1)
         
