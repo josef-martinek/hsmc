@@ -37,8 +37,9 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         
         self.param_dim = problem_cfg.param_dim
         
-        # ground_truth_par
-        self.ground_truth_par = np.array([0.5, -0.5, 0.2, 0.8, -0.1])
+        # ground_truth_par sampled from prior
+        rng_truth = np.random.default_rng(seed=problem_cfg.ground_truth_seed)
+        self.ground_truth_par = rng_truth.uniform(problem_cfg.prior_a, problem_cfg.prior_b, size=self.param_dim)
         
         # prior
         a = problem_cfg.prior_a
