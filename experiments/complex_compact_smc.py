@@ -131,7 +131,7 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
                         self.cost_fixed[lc_idx, gns_idx, nts_idx, nmax_idx] = c_fixed
                         
                         # Adaptive cost
-                        nsamp_sched = self.get_adaptive_schedule(nmax, gamma_nsamp, n_temp_steps, self.nsamp_min)
+                        nsamp_sched = self.get_adaptive_schedule(nmax, gamma_nsamp, n_temp_steps, self.nsamp_min, **cfg.experiment)
                         
                         c_adapt = nsamp_sched[0]
                         for t in range(1, T_exponents + 1):
@@ -171,7 +171,7 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         return tasks
 
     @staticmethod
-    def get_adaptive_schedule(nmax, gamma_nsamp, n_temp_steps, nsamp_min, shape_p=1.0):
+    def get_adaptive_schedule(nmax, gamma_nsamp, n_temp_steps, nsamp_min, **kwargs):
         import numpy as np
         smallest_nsamp = nmax / (gamma_nsamp ** n_temp_steps)
         nsamp_sched = np.zeros(n_temp_steps + 1)
@@ -226,8 +226,7 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         exponents = np.array([(gamma_temp**t - 1) / (gamma_temp**n_temp_steps - 1) for t in range(1, n_temp_steps + 1)])
         
         runner_class = task_params.get("runner_class", ComplexCompactSMCExperiment)
-        shape_p = cfg.experiment.get("shape_p", 1.0)
-        Nsamps_adapt = runner_class.get_adaptive_schedule(nmax, gamma_nsamp, n_temp_steps, nsamp_min, shape_p)
+        Nsamps_adapt = runner_class.get_adaptive_schedule(nmax, gamma_nsamp, n_temp_steps, nsamp_min, **cfg.experiment)
             
         Nsamps_fixed = nmax * np.ones(len(exponents) + 1)
         

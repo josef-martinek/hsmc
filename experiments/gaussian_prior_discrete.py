@@ -3,7 +3,7 @@ from experiments.complex_compact_gaussian_prior_smc import ComplexCompactGaussia
 
 class GaussianPriorDiscreteExperiment(ComplexCompactGaussianPriorSMCExperiment):
     @staticmethod
-    def get_adaptive_schedule(nmax, gamma_nsamp, n_temp_steps, nsamp_min, shape_p=1.0):
+    def get_adaptive_schedule(nmax, gamma_nsamp, n_temp_steps, nsamp_min, shape_p, **kwargs):
         import numpy as np
         nsamp_sched = np.zeros(n_temp_steps + 1)
         
