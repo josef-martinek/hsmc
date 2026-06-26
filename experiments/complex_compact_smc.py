@@ -23,6 +23,18 @@ from core.mcmc import RWRegCal
 
 
 class ComplexCompactSMCExperiment(ExperimentRunner):
+    def get_prior(self, problem_cfg):
+        a = problem_cfg.prior_a
+        b = problem_cfg.prior_b
+        if self.param_dim == 1:
+            prior = dists.StructDist({'param': dists.Uniform(a=a, b=b)})
+        else:
+            prior = dists.StructDist({'param': dists.IndepProd(*(dists.Uniform(a=a, b=b) for _ in range(self.param_dim)))})
+        return prior
+
+    def sample_ground_truth(self, problem_cfg, rng_truth):
+        return rng_truth.uniform(problem_cfg.prior_a, problem_cfg.prior_b, size=self.param_dim)
+
     def setup(self, cfg):
         problem_cfg = cfg.problem
         sweep_cfg = cfg.experiment.sweep
@@ -39,15 +51,10 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         
         # ground_truth_par sampled from prior
         rng_truth = np.random.default_rng(seed=problem_cfg.ground_truth_seed)
-        self.ground_truth_par = rng_truth.uniform(problem_cfg.prior_a, problem_cfg.prior_b, size=self.param_dim)
+        self.ground_truth_par = self.sample_ground_truth(problem_cfg, rng_truth)
         
         # prior
-        a = problem_cfg.prior_a
-        b = problem_cfg.prior_b
-        if self.param_dim == 1:
-            prior = dists.StructDist({'param': dists.Uniform(a=a, b=b)})
-        else:
-            prior = dists.StructDist({'param': dists.IndepProd(*(dists.Uniform(a=a, b=b) for _ in range(self.param_dim)))})
+        prior = self.get_prior(problem_cfg)
         
         # Set up the CompactModel with configurations from yaml
         from problem_setup.compact_problem.likelihood_model import IPModelExactHD, CompactModel
@@ -252,17 +259,8 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         
         # 2. Compact Density
         m_data = len(observed_data)
-        a = cfg.problem.prior_a
-        b = cfg.problem.prior_b
-        param_dim = cfg.problem.param_dim
-        if param_dim == 1:
-            prior_param = dists.Uniform(a=a, b=b)
-        else:
-            prior_param = dists.IndepProd(*(dists.Uniform(a=a, b=b) for _ in range(param_dim)))
-            
-        prior_dens = dists.StructDist({'param': prior_param})
         
-        m_dens_adapt = IPModelInexactAdaptHDDensity(prior=prior_dens, data_noise_cov=cfg.problem.data_noise_var, data=observed_data)
+        m_dens_adapt = IPModelInexactAdaptHDDensity(prior=prior, data_noise_cov=cfg.problem.data_noise_var, data=observed_data)
         m_dens_adapt.evaluator = KernelRatioEvaluator(CompactModel)
         results["density_adapt"] = run_smc(m_dens_adapt, Nsamps_adapt, sampler_class=DensityTempNsampNoRew)
         
