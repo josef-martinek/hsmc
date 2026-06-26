@@ -6,7 +6,6 @@ problem:
   truncation_radius_R: 8.0
   base_variance: 0.1
   param_dim: 10
-  gamma_temp: 1.5
   ground_truth_seed: 42
   prior_a: -1.
   prior_b: 1.
@@ -16,6 +15,10 @@ experiment:
   runner:
     _target_: experiments.complex_compact_smc.ComplexCompactSMCExperiment
   ref_sol:
+    len_chain: 100
+    ESSrmin: 0.9
+    N: 10000
+  tempering_sampler:
     len_chain: 100
     ESSrmin: 0.9
     N: 10000
@@ -39,5 +42,3 @@ experiment:
       - 10
     gamma_nsamp_seq:
       - 2.0
-    n_temp_steps_seq:
-      - 10

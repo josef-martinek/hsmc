@@ -44,7 +44,6 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         self.n_particles_seq = list(sweep_cfg.n_particles_seq)
         self.len_chain_seq = list(sweep_cfg.len_chain_seq)
         self.gamma_nsamp_seq = list(sweep_cfg.gamma_nsamp_seq)
-        self.n_temp_steps_seq = list(sweep_cfg.n_temp_steps_seq)
         self.nsamp_min = cfg.experiment.nsamp_min
         
         self.param_dim = problem_cfg.param_dim
@@ -90,13 +89,29 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         )
         print("Reference solutions computed.")
         
+        if "tempering_sampler" in cfg.experiment:
+            print("Running tempering sampler to extract tempering schedule...")
+            temp_cfg = cfg.experiment.tempering_sampler
+            _, fixed_exps = get_ref_sols(
+                model_ex, len_chain=temp_cfg.len_chain, ESSrmin=temp_cfg.ESSrmin, N=temp_cfg.N, return_exponents=True
+            )
+            # Remove the first 0.0 element if it exists because the sequence of targets expects [e1, e2, ... 1.0]
+            if fixed_exps[0] == 0.0:
+                self.fixed_exponents = fixed_exps[1:]
+            else:
+                self.fixed_exponents = fixed_exps
+            self.n_temp_steps = len(self.fixed_exponents)
+            print("Tempering schedule extracted. Steps:", self.n_temp_steps)
+        else:
+            raise ValueError("tempering_sampler missing from config")
+
         # Put shared variables into Ray object store
         self.prior_ref = ray.put(prior)
         self.observed_data_ref = ray.put(observed_data)
         self.post_samp_ref_exact_ref = ray.put(post_samp_ref_exact)
         
         # Dictionaries to store results: w1[problem][method][np_val] = np.zeros((len(Nmax_seq), n_runs))
-        shape = (len(self.len_chain_seq), len(self.gamma_nsamp_seq), len(self.n_temp_steps_seq), len(self.n_particles_seq), len(self.Nmax_seq), self.n_runs)
+        shape = (len(self.len_chain_seq), len(self.gamma_nsamp_seq), len(self.n_particles_seq), len(self.Nmax_seq), self.n_runs)
         self.results_w1 = {
             "compact": {"adapt": np.zeros(shape), "std": np.zeros(shape)},
             "density": {"adapt": np.zeros(shape)}
@@ -106,7 +121,7 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
             "density": {"adapt": {}}
         }
         
-        max_t = max(self.n_temp_steps_seq)
+        max_t = self.n_temp_steps
         for prob, method in [("compact", "adapt"), ("compact", "std"), ("density", "adapt")]:
             self.results_stats[prob][method] = {
                 "ESS": np.full((*shape, max_t + 1), np.nan),
@@ -115,55 +130,51 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
                 "nsamps": np.full((*shape[:-1], max_t + 1), np.nan)
             }
         
-        self.cost_adapt = np.zeros((len(self.len_chain_seq), len(self.gamma_nsamp_seq), len(self.n_temp_steps_seq), len(self.Nmax_seq)))
-        self.cost_fixed = np.zeros((len(self.len_chain_seq), len(self.gamma_nsamp_seq), len(self.n_temp_steps_seq), len(self.Nmax_seq)))
-        
-        # Calculate theoretical costs based on Nmax
-        gamma_temp = problem_cfg.gamma_temp
+        self.cost_adapt = np.zeros((len(self.len_chain_seq), len(self.gamma_nsamp_seq), len(self.Nmax_seq)))
+        self.cost_fixed = np.zeros((len(self.len_chain_seq), len(self.gamma_nsamp_seq), len(self.Nmax_seq)))
         
         for lc_idx, len_chain in enumerate(self.len_chain_seq):
             for gns_idx, gamma_nsamp in enumerate(self.gamma_nsamp_seq):
-                for nts_idx, n_temp_steps in enumerate(self.n_temp_steps_seq):
-                    T_exponents = n_temp_steps
-                    for nmax_idx, nmax in enumerate(self.Nmax_seq):
-                        # Fixed cost
-                        c_fixed = nmax + nmax * (len_chain - 1) * T_exponents
-                        self.cost_fixed[lc_idx, gns_idx, nts_idx, nmax_idx] = c_fixed
-                        
-                        # Adaptive cost
-                        sched_kwargs = cfg.experiment.get("scheduler_params", {})
-                        nsamp_sched = self.get_adaptive_schedule(nmax, gamma_nsamp, n_temp_steps, self.nsamp_min, **sched_kwargs)
-                        
-                        c_adapt = nsamp_sched[0]
-                        for t in range(1, T_exponents + 1):
-                            c_adapt += nsamp_sched[t] * (len_chain - 1)
-                            if nsamp_sched[t] > nsamp_sched[t-1]:
-                                c_adapt += nsamp_sched[t]
-                        self.cost_adapt[lc_idx, gns_idx, nts_idx, nmax_idx] = c_adapt
+                n_temp_steps = self.n_temp_steps
+                T_exponents = n_temp_steps
+                for nmax_idx, nmax in enumerate(self.Nmax_seq):
+                    # Fixed cost
+                    c_fixed = nmax + nmax * (len_chain - 1) * T_exponents
+                    self.cost_fixed[lc_idx, gns_idx, nmax_idx] = c_fixed
+                    
+                    # Adaptive cost
+                    sched_kwargs = cfg.experiment.get("scheduler_params", {})
+                    nsamp_sched = self.get_adaptive_schedule(nmax, gamma_nsamp, n_temp_steps, self.nsamp_min, **sched_kwargs)
+                    
+                    c_adapt = nsamp_sched[0]
+                    for t in range(1, T_exponents + 1):
+                        c_adapt += nsamp_sched[t] * (len_chain - 1)
+                        if nsamp_sched[t] > nsamp_sched[t-1]:
+                            c_adapt += nsamp_sched[t]
+                    self.cost_adapt[lc_idx, gns_idx, nmax_idx] = c_adapt
 
     def generate_tasks(self, cfg):
         cfg_dict = OmegaConf.to_container(cfg, resolve=True)
         tasks = []
         for lc_idx, len_chain in enumerate(self.len_chain_seq):
             for gns_idx, gamma_nsamp in enumerate(self.gamma_nsamp_seq):
-                for nts_idx, n_temp_steps in enumerate(self.n_temp_steps_seq):
-                    for nmax_idx, nmax in enumerate(self.Nmax_seq):
-                        for np_idx, np_val in enumerate(self.n_particles_seq):
-                            for run_idx in range(self.n_runs):
-                                tasks.append({
-                                    "len_chain": len_chain,
-                                    "len_chain_idx": lc_idx,
-                                    "gamma_nsamp": gamma_nsamp,
-                                    "gamma_nsamp_idx": gns_idx,
-                                    "n_temp_steps": n_temp_steps,
-                                    "n_temp_steps_idx": nts_idx,
-                                    "nmax": nmax,
-                                    "nmax_idx": nmax_idx,
-                                    "nsamp_min": self.nsamp_min,
-                                    "n_particles": np_val,
-                                    "n_particles_idx": np_idx,
-                                    "run_idx": run_idx,
-                                    "prior_ref": self.prior_ref,
+                for nmax_idx, nmax in enumerate(self.Nmax_seq):
+                    for np_idx, np_val in enumerate(self.n_particles_seq):
+                        for run_idx in range(self.n_runs):
+                            tasks.append({
+                                "len_chain": len_chain,
+                                "len_chain_idx": lc_idx,
+                                "gamma_nsamp": gamma_nsamp,
+                                "gamma_nsamp_idx": gns_idx,
+                                "n_temp_steps": self.n_temp_steps,
+                                "exponents": self.fixed_exponents,
+                                "nmax": nmax,
+                                "nmax_idx": nmax_idx,
+                                "nsamp_min": self.nsamp_min,
+                                "n_particles": np_val,
+                                "n_particles_idx": np_idx,
+                                "run_idx": run_idx,
+                                "prior_ref": self.prior_ref,
                                     "observed_data_ref": self.observed_data_ref,
                                     "post_samp_ref_exact_ref": self.post_samp_ref_exact_ref,
                                     "cfg": cfg_dict,
@@ -219,12 +230,10 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         nsamp_min = task_params["nsamp_min"]
         n_particles = task_params["n_particles"]
         
-        gamma_temp = cfg.problem.gamma_temp
         n_temp_steps = task_params["n_temp_steps"]
         gamma_nsamp = task_params["gamma_nsamp"]
         len_chain = task_params["len_chain"]
-        
-        exponents = np.array([(gamma_temp**t - 1) / (gamma_temp**n_temp_steps - 1) for t in range(1, n_temp_steps + 1)])
+        exponents = task_params["exponents"]
         
         runner_class = task_params.get("runner_class", ComplexCompactSMCExperiment)
         sched_kwargs = cfg.experiment.get("scheduler_params", {})
@@ -274,7 +283,6 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         nmax_idx, np_val, run_idx, res_dict = result
         lc_idx = task_params["len_chain_idx"]
         gns_idx = task_params["gamma_nsamp_idx"]
-        nts_idx = task_params["n_temp_steps_idx"]
         np_idx = task_params["n_particles_idx"]
         
         for prob, method, key in [
@@ -283,21 +291,21 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
             ("density", "adapt", "density_adapt")
         ]:
             w1_mean, ess, acc_rates, exps, nsamps = res_dict[key]
-            self.results_w1[prob][method][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, run_idx] = w1_mean
+            self.results_w1[prob][method][lc_idx, gns_idx, np_idx, nmax_idx, run_idx] = w1_mean
             
             n_ess = len(ess)
-            self.results_stats[prob][method]["ESS"][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, run_idx, :n_ess] = ess
+            self.results_stats[prob][method]["ESS"][lc_idx, gns_idx, np_idx, nmax_idx, run_idx, :n_ess] = ess
             
             n_acc = len(acc_rates)
             if n_acc > 0:
-                self.results_stats[prob][method]["acc_rate"][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, run_idx, :n_acc] = acc_rates
+                self.results_stats[prob][method]["acc_rate"][lc_idx, gns_idx, np_idx, nmax_idx, run_idx, :n_acc] = acc_rates
                 
             # Only need to store exponents and nsamps once per configuration since it's identical
             if run_idx == 0:
                 n_exps = len(exps)
-                self.results_stats[prob][method]["exponents"][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, :n_exps] = exps
+                self.results_stats[prob][method]["exponents"][lc_idx, gns_idx, np_idx, nmax_idx, :n_exps] = exps
                 n_nsamps = len(nsamps)
-                self.results_stats[prob][method]["nsamps"][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, :n_nsamps] = nsamps
+                self.results_stats[prob][method]["nsamps"][lc_idx, gns_idx, np_idx, nmax_idx, :n_nsamps] = nsamps
 
     def save_results(self, output_dir):
         z_val = 1.96
@@ -315,7 +323,7 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
             "n_particles_seq": np.array(self.n_particles_seq),
             "len_chain_seq": np.array(self.len_chain_seq),
             "gamma_nsamp_seq": np.array(self.gamma_nsamp_seq),
-            "n_temp_steps_seq": np.array(self.n_temp_steps_seq),
+            "n_temp_steps": self.n_temp_steps,
             "cost_adapt": np.array(self.cost_adapt),
             "cost_fixed": np.array(self.cost_fixed)
         }
@@ -329,130 +337,130 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         with open(stats_file, 'w') as f:
             for lc_idx, len_chain in enumerate(self.len_chain_seq):
                 for gns_idx, gamma_nsamp in enumerate(self.gamma_nsamp_seq):
-                    for nts_idx, n_temp_steps in enumerate(self.n_temp_steps_seq):
-                        suffix = f"lc_{len_chain}_gns_{gamma_nsamp}_nts_{n_temp_steps}"
+                    n_temp_steps = self.n_temp_steps
+                    suffix = f"lc_{len_chain}_gns_{gamma_nsamp}_nts_{n_temp_steps}"
+                    
+                    # 1. Error Plot
+                    fig1, ax1 = plt.subplots(1, 1, figsize=(10, 8))
+                    
+                    for np_idx, np_val in enumerate(self.n_particles_seq):
+                        color = colors[np_val]
                         
-                        # 1. Error Plot
-                        fig1, ax1 = plt.subplots(1, 1, figsize=(10, 8))
+                        # compact_adapt
+                        w1_ca = self.results_w1["compact"]["adapt"][lc_idx, gns_idx, np_idx]
+                        mean_ca = np.mean(w1_ca, axis=1)
+                        ci_ca = z_val * np.std(w1_ca, axis=1, ddof=1) / np.sqrt(self.n_runs)
+                        ax1.errorbar(self.Nmax_seq, mean_ca, yerr=get_asym_yerr(mean_ca, ci_ca),
+                                     marker='o', linestyle='-', color=color, capsize=5, linewidth=2.5, elinewidth=2.5, markersize=8)
                         
-                        for np_idx, np_val in enumerate(self.n_particles_seq):
-                            color = colors[np_val]
+                        # compact_std
+                        w1_cs = self.results_w1["compact"]["std"][lc_idx, gns_idx, np_idx]
+                        mean_cs = np.mean(w1_cs, axis=1)
+                        ci_cs = z_val * np.std(w1_cs, axis=1, ddof=1) / np.sqrt(self.n_runs)
+                        ax1.errorbar(self.Nmax_seq, mean_cs, yerr=get_asym_yerr(mean_cs, ci_cs),
+                                     marker='s', linestyle='--', color=color, capsize=5, linewidth=2.5, elinewidth=2.5, markersize=8)
+                                     
+                        # density_adapt
+                        w1_da = self.results_w1["density"]["adapt"][lc_idx, gns_idx, np_idx]
+                        mean_da = np.mean(w1_da, axis=1)
+                        ci_da = z_val * np.std(w1_da, axis=1, ddof=1) / np.sqrt(self.n_runs)
+                        ax1.errorbar(self.Nmax_seq, mean_da, yerr=get_asym_yerr(mean_da, ci_da),
+                                     marker='^', linestyle=':', color=color, capsize=5, linewidth=2.5, elinewidth=2.5, markersize=8)
+                    
+                    ax1.set_xscale('log'); ax1.set_yscale('log')
+                    ax1.set_xticks(self.Nmax_seq); ax1.get_xaxis().set_major_formatter(plt.ScalarFormatter())
+                    ax1.tick_params(axis='both', which='major', labelsize=16)
+                    ax1.set_xlabel('$S_{max}$', fontsize=20)
+                    ax1.set_ylabel('Mean Wasserstein-1 Distance', fontsize=20)
+                    ax1.set_title(f'W1 Distance ({suffix})', fontsize=20)
+                    ax1.grid(True, which="both", linestyle="--", alpha=0.6)
+                    
+                    from matplotlib.lines import Line2D
+                    alg_elements = [
+                        Line2D([0], [0], color='black', marker='o', linestyle='-', linewidth=2.5, markersize=8, label='Compact Adapt'),
+                        Line2D([0], [0], color='black', marker='s', linestyle='--', linewidth=2.5, markersize=8, label='Compact Std'),
+                        Line2D([0], [0], color='black', marker='^', linestyle=':', linewidth=2.5, markersize=8, label='Density Adapt')
+                    ]
+                    part_elements = [Line2D([0], [0], color=colors[n], linewidth=2.5, label=f'$N = {n}$') for n in self.n_particles_seq]
+                    
+                    leg1 = ax1.legend(handles=alg_elements, loc='upper right', fontsize=14, title="Algorithms")
+                    ax1.add_artist(leg1)
+                    ax1.legend(handles=part_elements, loc='lower left', fontsize=14, title="Particles")
+                    
+                    fig1.tight_layout()
+                    fig1.savefig(os.path.join(output_dir, f'w1_distance_combined_{suffix}.pdf'))
+                    plt.close(fig1)
+                    
+                    # 2. Cost Plot
+                    fig2, ax2 = plt.subplots(1, 1, figsize=(8, 6))
+                    
+                    cost_a = self.cost_adapt[lc_idx, gns_idx]
+                    cost_f = self.cost_fixed[lc_idx, gns_idx]
+                        
+                    ax2.plot(self.Nmax_seq, cost_a, marker='o', linestyle='-', color='black', linewidth=2.5, markersize=8, label='Adaptive')
+                    ax2.plot(self.Nmax_seq, cost_f, marker='s', linestyle='--', color='black', linewidth=2.5, markersize=8, label='Standard')
+                    
+                    anchor_nmax = self.Nmax_seq[-1]
+                    anchor_cost = cost_a[-1]
+                    slope_nmax = [anchor_cost * (n / anchor_nmax) for n in self.Nmax_seq]
+                    slope_tnmax = [anchor_cost * (n / anchor_nmax) * n_temp_steps for n in self.Nmax_seq]
+                    
+                    ax2.plot(self.Nmax_seq, slope_nmax, linestyle=':', color='black', linewidth=2, label=r'$\mathcal{O}(S_{max})$')
+                    ax2.plot(self.Nmax_seq, slope_tnmax, linestyle=':', color='black', linewidth=2, label=r'$\mathcal{O}(T \cdot S_{max})$')
+
+                    ax2.set_xscale('log'); ax2.set_yscale('log')
+                    ax2.set_xticks(self.Nmax_seq); ax2.get_xaxis().set_major_formatter(plt.ScalarFormatter())
+                    ax2.tick_params(axis='both', which='major', labelsize=16)
+                    ax2.set_xlabel('$S_{max}$', fontsize=20)
+                    ax2.set_ylabel('Cost per particle', fontsize=20)
+                    ax2.set_title(f'Cost per particle ({suffix})', fontsize=20)
+                    ax2.grid(True, which="both", linestyle="--", alpha=0.6)
+                    ax2.legend(fontsize=16)
+
+                    fig2.tight_layout()
+                    fig2.savefig(os.path.join(output_dir, f'cost_combined_{suffix}.pdf'))
+                    plt.close(fig2)
+                        
+                # 3. Write Stats Summary block
+                for prob, method, key in [
+                    ("compact", "adapt", "compact_adapt"),
+                    ("compact", "std", "compact_std"),
+                    ("density", "adapt", "density_adapt")
+                ]:
+                    for np_idx, np_val in enumerate(self.n_particles_seq):
+                        for nmax_idx, nmax in enumerate(self.Nmax_seq):
+                            stats = self.results_stats[prob][method]
+                            exps = stats["exponents"][lc_idx, gns_idx, np_idx, nmax_idx, :n_temp_steps+1]
+                            nsamps_used = stats["nsamps"][lc_idx, gns_idx, np_idx, nmax_idx, :n_temp_steps+1]
                             
-                            # compact_adapt
-                            w1_ca = self.results_w1["compact"]["adapt"][lc_idx, gns_idx, nts_idx, np_idx]
-                            mean_ca = np.mean(w1_ca, axis=1)
-                            ci_ca = z_val * np.std(w1_ca, axis=1, ddof=1) / np.sqrt(self.n_runs)
-                            ax1.errorbar(self.Nmax_seq, mean_ca, yerr=get_asym_yerr(mean_ca, ci_ca),
-                                         marker='o', linestyle='-', color=color, capsize=5, linewidth=2.5, elinewidth=2.5, markersize=8)
+                            # Calculate means over runs, ignoring NaNs
+                            mean_ess = np.nanmean(stats["ESS"][lc_idx, gns_idx, np_idx, nmax_idx, :, :], axis=0)
+                            mean_acc = np.nanmean(stats["acc_rate"][lc_idx, gns_idx, np_idx, nmax_idx, :, :], axis=0)
+                                    
+                            # Remove trailing NaNs
+                            mean_ess = mean_ess[~np.isnan(mean_ess)]
+                            mean_acc = mean_acc[~np.isnan(mean_acc)]
                             
-                            # compact_std
-                            w1_cs = self.results_w1["compact"]["std"][lc_idx, gns_idx, nts_idx, np_idx]
-                            mean_cs = np.mean(w1_cs, axis=1)
-                            ci_cs = z_val * np.std(w1_cs, axis=1, ddof=1) / np.sqrt(self.n_runs)
-                            ax1.errorbar(self.Nmax_seq, mean_cs, yerr=get_asym_yerr(mean_cs, ci_cs),
-                                         marker='s', linestyle='--', color=color, capsize=5, linewidth=2.5, elinewidth=2.5, markersize=8)
-                                         
-                            # density_adapt
-                            w1_da = self.results_w1["density"]["adapt"][lc_idx, gns_idx, nts_idx, np_idx]
-                            mean_da = np.mean(w1_da, axis=1)
-                            ci_da = z_val * np.std(w1_da, axis=1, ddof=1) / np.sqrt(self.n_runs)
-                            ax1.errorbar(self.Nmax_seq, mean_da, yerr=get_asym_yerr(mean_da, ci_da),
-                                         marker='^', linestyle=':', color=color, capsize=5, linewidth=2.5, elinewidth=2.5, markersize=8)
-                        
-                        ax1.set_xscale('log'); ax1.set_yscale('log')
-                        ax1.set_xticks(self.Nmax_seq); ax1.get_xaxis().set_major_formatter(plt.ScalarFormatter())
-                        ax1.tick_params(axis='both', which='major', labelsize=16)
-                        ax1.set_xlabel('$S_{max}$', fontsize=20)
-                        ax1.set_ylabel('Mean Wasserstein-1 Distance', fontsize=20)
-                        ax1.set_title(f'W1 Distance ({suffix})', fontsize=20)
-                        ax1.grid(True, which="both", linestyle="--", alpha=0.6)
-                        
-                        from matplotlib.lines import Line2D
-                        alg_elements = [
-                            Line2D([0], [0], color='black', marker='o', linestyle='-', linewidth=2.5, markersize=8, label='Compact Adapt'),
-                            Line2D([0], [0], color='black', marker='s', linestyle='--', linewidth=2.5, markersize=8, label='Compact Std'),
-                            Line2D([0], [0], color='black', marker='^', linestyle=':', linewidth=2.5, markersize=8, label='Density Adapt')
-                        ]
-                        part_elements = [Line2D([0], [0], color=colors[n], linewidth=2.5, label=f'$N = {n}$') for n in self.n_particles_seq]
-                        
-                        leg1 = ax1.legend(handles=alg_elements, loc='upper right', fontsize=14, title="Algorithms")
-                        ax1.add_artist(leg1)
-                        ax1.legend(handles=part_elements, loc='lower left', fontsize=14, title="Particles")
-                        
-                        fig1.tight_layout()
-                        fig1.savefig(os.path.join(output_dir, f'w1_distance_combined_{suffix}.pdf'))
-                        plt.close(fig1)
-                        
-                        # 2. Cost Plot
-                        fig2, ax2 = plt.subplots(1, 1, figsize=(8, 6))
-                        
-                        cost_a = self.cost_adapt[lc_idx, gns_idx, nts_idx]
-                        cost_f = self.cost_fixed[lc_idx, gns_idx, nts_idx]
-                        
-                        ax2.plot(self.Nmax_seq, cost_a, marker='o', linestyle='-', color='black', linewidth=2.5, markersize=8, label='Adaptive')
-                        ax2.plot(self.Nmax_seq, cost_f, marker='s', linestyle='--', color='black', linewidth=2.5, markersize=8, label='Standard')
-                        
-                        anchor_nmax = self.Nmax_seq[-1]
-                        anchor_cost = cost_a[-1]
-                        slope_nmax = [anchor_cost * (n / anchor_nmax) for n in self.Nmax_seq]
-                        slope_tnmax = [anchor_cost * (n / anchor_nmax) * n_temp_steps for n in self.Nmax_seq]
-                        
-                        ax2.plot(self.Nmax_seq, slope_nmax, linestyle=':', color='black', linewidth=2, label=r'$\mathcal{O}(S_{max})$')
-                        ax2.plot(self.Nmax_seq, slope_tnmax, linestyle=':', color='black', linewidth=2, label=r'$\mathcal{O}(T \cdot S_{max})$')
-    
-                        ax2.set_xscale('log'); ax2.set_yscale('log')
-                        ax2.set_xticks(self.Nmax_seq); ax2.get_xaxis().set_major_formatter(plt.ScalarFormatter())
-                        ax2.tick_params(axis='both', which='major', labelsize=16)
-                        ax2.set_xlabel('$S_{max}$', fontsize=20)
-                        ax2.set_ylabel('Cost per particle', fontsize=20)
-                        ax2.set_title(f'Cost per particle ({suffix})', fontsize=20)
-                        ax2.grid(True, which="both", linestyle="--", alpha=0.6)
-                        ax2.legend(fontsize=16)
-    
-                        fig2.tight_layout()
-                        fig2.savefig(os.path.join(output_dir, f'cost_combined_{suffix}.pdf'))
-                        plt.close(fig2)
-                        
-                        # 3. Write Stats Summary block
-                        for prob, method, key in [
-                            ("compact", "adapt", "compact_adapt"),
-                            ("compact", "std", "compact_std"),
-                            ("density", "adapt", "density_adapt")
-                        ]:
-                            for np_idx, np_val in enumerate(self.n_particles_seq):
-                                for nmax_idx, nmax in enumerate(self.Nmax_seq):
-                                    stats = self.results_stats[prob][method]
-                                    exps = stats["exponents"][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, :n_temp_steps+1]
-                                    nsamps_used = stats["nsamps"][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, :n_temp_steps+1]
+                            f.write("=" * 80 + "\n")
+                            f.write(f"Algorithm: {key} | Nmax: {nmax} | Particles: {np_val} | len_chain: {len_chain} | gamma: {gamma_nsamp} | n_temp_steps: {n_temp_steps}\n")
+                            f.write("=" * 95 + "\n")
+                            f.write(f"{'Step':>4} | {'Target Exponent':>15} | {'Avg ESS':>10} | {'Avg Acc. Rate':>15} | {'Samples':>10}\n")
+                            f.write("-" * 95 + "\n")
+                            
+                            n_steps = len(mean_ess)
+                            for t in range(n_steps):
+                                exp_val = exps[t + 1] if (t + 1) < len(exps) else 0.0
+                                ess_val = mean_ess[t]
+                                
+                                if t < len(mean_acc):
+                                    acc_val = mean_acc[t]
+                                    acc_str = f"{acc_val:.3f}"
+                                else:
+                                    acc_str = "N/A"
                                     
-                                    # Calculate means over runs, ignoring NaNs
-                                    mean_ess = np.nanmean(stats["ESS"][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, :, :], axis=0)
-                                    mean_acc = np.nanmean(stats["acc_rate"][lc_idx, gns_idx, nts_idx, np_idx, nmax_idx, :, :], axis=0)
+                                nsamp_val = nsamps_used[t + 1] if (t + 1) < len(nsamps_used) else 0.0
                                     
-                                    # Remove trailing NaNs
-                                    mean_ess = mean_ess[~np.isnan(mean_ess)]
-                                    mean_acc = mean_acc[~np.isnan(mean_acc)]
-                                    
-                                    f.write("=" * 80 + "\n")
-                                    f.write(f"Algorithm: {key} | Nmax: {nmax} | Particles: {np_val} | len_chain: {len_chain} | gamma: {gamma_nsamp} | n_temp_steps: {n_temp_steps}\n")
-                                    f.write("=" * 95 + "\n")
-                                    f.write(f"{'Step':>4} | {'Target Exponent':>15} | {'Avg ESS':>10} | {'Avg Acc. Rate':>15} | {'Samples':>10}\n")
-                                    f.write("-" * 95 + "\n")
-                                    
-                                    n_steps = len(mean_ess)
-                                    for t in range(n_steps):
-                                        exp_val = exps[t + 1] if (t + 1) < len(exps) else 0.0
-                                        ess_val = mean_ess[t]
-                                        
-                                        if t < len(mean_acc):
-                                            acc_val = mean_acc[t]
-                                            acc_str = f"{acc_val:.3f}"
-                                        else:
-                                            acc_str = "N/A"
-                                            
-                                        nsamp_val = nsamps_used[t + 1] if (t + 1) < len(nsamps_used) else 0.0
-                                            
-                                        f.write(f"{t:4d} | {exp_val:15.5f} | {ess_val:10.2f} | {acc_str:>15} | {nsamp_val:10.2f}\n")
-                                    f.write("\n")
+                                f.write(f"{t:4d} | {exp_val:15.5f} | {ess_val:10.2f} | {acc_str:>15} | {nsamp_val:10.2f}\n")
+                            f.write("\n")
             
         print(f"Stats summary saved to {stats_file}")
