@@ -12,8 +12,9 @@ problem:
   prior_sigma: 1.0
 
 experiment:
-  nsamp_min: 1
-  shape_p: 1.0
+  nsamp_min: 0.125
+  scheduler_params:
+    shape_p: 1.0
   runner:
     _target_: experiments.gaussian_prior_discrete.GaussianPriorDiscreteExperiment
   ref_sol:
