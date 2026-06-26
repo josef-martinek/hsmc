@@ -4,6 +4,18 @@ from experiments.complex_compact_gaussian_prior_smc import ComplexCompactGaussia
 class GaussianPriorDiscreteExperiment(ComplexCompactGaussianPriorSMCExperiment):
     @staticmethod
     def get_adaptive_schedule(nmax, gamma_nsamp, n_temp_steps, nsamp_min, shape_p, **kwargs):
+        """
+        Generates an adaptive schedule for the number of samples interpolating exactly 
+        between `nsamp_min` and `nmax`. The sequence is snapped to nearest powers of `gamma_nsamp`.
+        
+        Note on the `shape_p` parameter:
+        - shape_p = 1.0: Pure geometric curve.
+        - shape_p > 1.0: Convex curve (grows slowly at the start, accelerates at the end).
+        - shape_p < 1.0: Concave curve (shoots up rapidly at the start, flattens at the end).
+          *WARNING*: If shape_p is too small (e.g., 0.5), the curve shoots up so fast that 
+          the very first transition (`t=1`) will snap to a much larger value than `nsamp_min`.
+
+        """
         import numpy as np
         nsamp_sched = np.zeros(n_temp_steps + 1)
         
