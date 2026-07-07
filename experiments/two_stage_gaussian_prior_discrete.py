@@ -55,16 +55,18 @@ class TwoStageGaussianPriorDiscreteExperiment(ComplexCompactGaussianPriorSMCExpe
             raise ValueError("tempering_sampler config missing")
             
         temp_cfg = cfg.experiment.tempering_sampler
-        print("Extracting e1 from tempering sampler...")
+        print("Extracting e1 using single-step AdaptiveTempering...")
         np.random.seed(problem_cfg.ground_truth_seed)
-        _, fixed_exps = get_ref_sols(
-            model_ex, len_chain=temp_cfg.len_chain, ESSrmin=temp_cfg.ESSrmin, N=temp_cfg.N, return_exponents=True
-        )
         
-        if fixed_exps[0] == 0.0:
-            self.e1 = fixed_exps[1]
-        else:
-            self.e1 = fixed_exps[0]
+        mcmc_temp = RWRegCal()
+        move_temp = ssp.AdaptiveMCMCSequence(mcmc=mcmc_temp, adaptive=False, len_chain=temp_cfg.len_chain)
+        fk_temp = ssp.AdaptiveTempering(model=model_ex, wastefree=False, ESSrmin=temp_cfg.ESSrmin, move=move_temp)
+        
+        alg_temp = SMC(fk=fk_temp, N=temp_cfg.N, ESSrmin=1., verbose=False)
+        next(alg_temp)
+        
+        temp_exps = alg_temp.X.shared.get('exponents', [])
+        self.e1 = temp_exps[-1]
             
         print(f"Target exponent e1: {self.e1}")
         
