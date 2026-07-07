@@ -222,3 +222,86 @@ class TwoStageGaussianPriorDiscreteExperiment(ComplexCompactGaussianPriorSMCExpe
         out_file = os.path.join(output_dir, "smc_results.npz")
         np.savez_compressed(out_file, **save_dict)
         print(f"Compressed results successfully saved to {out_file}")
+        
+        try:
+            import matplotlib.pyplot as plt
+            from collections import defaultdict
+            
+            res_ex = defaultdict(lambda: defaultdict(list))
+            for err, (b, p) in zip(self.W_ex_by_setup, self.setups):
+                res_ex[b][p].append(err)
+                
+            budgets = sorted(res_ex.keys())
+            CI_Z = 1.96
+            
+            # 1. Optimal Allocation Plot
+            fig_opt, ax_opt = plt.subplots(figsize=(7, 5))
+            mean_opt, lo_opt, hi_opt = [], [], []
+            
+            for b in budgets:
+                percents = sorted(res_ex[b].keys())
+                n_runs_b = len(res_ex[b][percents[0]])
+                errors = np.array([res_ex[b][p] for p in percents]).T
+                best_idx = np.argmin(errors, axis=1)
+                best_percents = np.array(percents)[best_idx]
+                m = np.mean(best_percents)
+                delta = CI_Z * np.std(best_percents, ddof=1) / np.sqrt(n_runs_b) if n_runs_b > 1 else 0.0
+                mean_opt.append(m)
+                lo_opt.append(m - delta)
+                hi_opt.append(m + delta)
+                
+            m_opt, lo_opt, hi_opt = np.array(mean_opt), np.array(lo_opt), np.array(hi_opt)
+            
+            ax_opt.errorbar(budgets, m_opt, yerr=[m_opt - lo_opt, hi_opt - m_opt], fmt="o-", color="blue", label=f"d={self.param_dim}")
+            ax_opt.set_xscale("log")
+            ax_opt.set_xlabel("Total Budget")
+            ax_opt.set_ylabel("Fraction coarse level")
+            ax_opt.set_title("Optimal allocation (W_ex)")
+            ax_opt.grid(True, linestyle="--")
+            ax_opt.legend()
+            
+            opt_file = os.path.join(output_dir, "opt_alloc_W_ex.png")
+            fig_opt.savefig(opt_file, dpi=300)
+            plt.close(fig_opt)
+            
+            # 2. Error vs Budget Plot
+            fig_err, ax_err = plt.subplots(figsize=(7, 5))
+            err_means, err_lows, err_highs = [], [], []
+            err_fo_means, err_fo_lows, err_fo_highs = [], [], []
+            
+            for b in budgets:
+                percents = sorted(res_ex[b].keys())
+                e_ex_arr = np.array([res_ex[b][p] for p in percents]).T
+                best_e = np.min(e_ex_arr, axis=1)
+                
+                # Check if 0.0 is present for "fine chain only"
+                fine_p = 0.0 if 0.0 in percents else percents[0] 
+                fine_e = np.array(res_ex[b][fine_p])
+                
+                m = np.mean(best_e)
+                s = np.std(best_e, ddof=1) if len(best_e) > 1 else 0.0
+                fm = np.mean(fine_e)
+                fs = np.std(fine_e, ddof=1) if len(fine_e) > 1 else 0.0
+                
+                d = CI_Z * s / np.sqrt(len(best_e)) if len(best_e) > 1 else 0.0
+                fd = CI_Z * fs / np.sqrt(len(fine_e)) if len(fine_e) > 1 else 0.0
+                
+                err_means.append(m); err_lows.append(m-d); err_highs.append(m+d)
+                err_fo_means.append(fm); err_fo_lows.append(fm-fd); err_fo_highs.append(fm+fd)
+                
+            ax_err.errorbar(budgets, err_means, yerr=[np.array(err_means)-err_lows, np.array(err_highs)-err_means], fmt="o-", capsize=4, label="Optimal allocation")
+            ax_err.errorbar(budgets, err_fo_means, yerr=[np.array(err_fo_means)-err_fo_lows, np.array(err_fo_highs)-err_fo_means], fmt="s--", capsize=4, label="fine chain only")
+            ax_err.set_xscale("log")
+            ax_err.set_xlabel("Total Budget")
+            ax_err.set_ylabel("Error")
+            ax_err.set_title(f"d={self.param_dim} (W_ex)")
+            ax_err.grid(True, linestyle="--")
+            ax_err.legend()
+            
+            err_file = os.path.join(output_dir, f"error_vs_budget_W_ex_d{self.param_dim}.png")
+            fig_err.savefig(err_file, dpi=300)
+            plt.close(fig_err)
+            
+            print(f"Generated and saved plots to {output_dir}")
+        except Exception as e:
+            print(f"Plotting failed: {e}")
