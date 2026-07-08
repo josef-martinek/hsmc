@@ -70,11 +70,16 @@ class TwoStageGaussianPriorDiscreteExperiment(ComplexCompactGaussianPriorSMCExpe
             
         print(f"Target exponent e1: {self.e1}")
         
-        print("Computing exact reference samples at e1...")
         ref_sol_cfg = cfg.experiment.ref_sol
+        print(f"Computing exact reference samples at e1 using {ref_sol_cfg.n_steps} intermediate steps...")
+        # Construct geometrically increasing sequence of exponents ending at self.e1
+        ref_exponents = np.geomspace(1e-4, self.e1, num=ref_sol_cfg.n_steps).tolist()
+        # Ensure the last exponent is exactly self.e1
+        ref_exponents[-1] = self.e1
+        
         mcmc_ref = RWRegCal()
         move_ref = ssp.AdaptiveMCMCSequence(mcmc=mcmc_ref, adaptive=False, len_chain=ref_sol_cfg.len_chain)
-        fk_ref = ssp.Tempering(model=model_ex, wastefree=False, exponents=[self.e1], move=move_ref)
+        fk_ref = ssp.Tempering(model=model_ex, wastefree=False, exponents=ref_exponents, move=move_ref)
         alg_ref = SMC(fk=fk_ref, N=ref_sol_cfg.N, ESSrmin=1., verbose=True)
         alg_ref.run()
         alg_ref.setup_auxiliary_weights()
