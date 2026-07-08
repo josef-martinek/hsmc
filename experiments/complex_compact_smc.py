@@ -32,6 +32,9 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
             prior = dists.StructDist({'param': dists.IndepProd(*(dists.Uniform(a=a, b=b) for _ in range(self.param_dim)))})
         return prior
 
+    # Default labels for the 3 SMC algorithm variants in the plots
+    plot_labels = ["Compact Adapt", "Compact Std", "Density Adapt"]
+
     def sample_ground_truth(self, problem_cfg, rng_truth):
         return rng_truth.uniform(problem_cfg.prior_a, problem_cfg.prior_b, size=self.param_dim)
 
@@ -377,9 +380,9 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
                     
                     from matplotlib.lines import Line2D
                     alg_elements = [
-                        Line2D([0], [0], color='black', marker='o', linestyle='-', linewidth=2.5, markersize=8, label='Compact Adapt'),
-                        Line2D([0], [0], color='black', marker='s', linestyle='--', linewidth=2.5, markersize=8, label='Compact Std'),
-                        Line2D([0], [0], color='black', marker='^', linestyle=':', linewidth=2.5, markersize=8, label='Density Adapt')
+                        Line2D([0], [0], color='black', marker='o', linestyle='-', linewidth=2.5, markersize=8, label=self.plot_labels[0]),
+                        Line2D([0], [0], color='black', marker='s', linestyle='--', linewidth=2.5, markersize=8, label=self.plot_labels[1]),
+                        Line2D([0], [0], color='black', marker='^', linestyle=':', linewidth=2.5, markersize=8, label=self.plot_labels[2])
                     ]
                     part_elements = [Line2D([0], [0], color=colors[n], linewidth=2.5, label=f'$N = {n}$') for n in self.n_particles_seq]
                     

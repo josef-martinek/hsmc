@@ -7,14 +7,14 @@ from particles.core import SMC
 from core.mcmc import NoisyMetropolisCal, RWRegCal, TwoStageMCMC
 
 from problem_setup.compact_problem.likelihood_model import IPModelInexactAdaptHD, CompactModel
-from problem_setup.compact_problem_density.likelihood_model import IPModelInexactAdaptHDDensity
-from problem_setup.compact_problem_density.kernel_ratio import KernelRatioEvaluator
-from problem_setup.compact_problem_density.samplers import DensityTempNsampNoRew
 from core.samplers import TempNsampNoRew
 
 from experiments.gaussian_prior_discrete import GaussianPriorDiscreteExperiment
 
 class FullTwoStageGaussianPriorDiscreteExperiment(GaussianPriorDiscreteExperiment):
+    
+    # Custom labels for the 3 SMC algorithm variants in the plots
+    plot_labels = ["Two-Stage Adapt", "Std Adapt", "Std Fixed"]
     
     def setup(self, cfg):
         # We extract budget and percent_coarse to compute chain lengths
@@ -74,7 +74,7 @@ class FullTwoStageGaussianPriorDiscreteExperiment(GaussianPriorDiscreteExperimen
         Nsamps_adapt = runner_class.get_adaptive_schedule(nmax, gamma_nsamp, n_temp_steps, nsamp_min, **sched_kwargs)
         Nsamps_fixed = nmax * np.ones(len(exponents) + 1)
         
-        # 3. Two-Stage MCMC Instantiation
+        # 3. MCMC and Run setup
         budget = cfg.experiment.budget
         percent_coarse = cfg.experiment.percent_coarse
         fine_over_coarse_nsamp = cfg.problem.fine_over_coarse_nsamp
@@ -84,27 +84,45 @@ class FullTwoStageGaussianPriorDiscreteExperiment(GaussianPriorDiscreteExperimen
         len_coarse_chain = coarse_nsteps + 1
         len_fine_chain = fine_nsteps + 1
         
-        mcmc_coarse = NoisyMetropolisCal()
-        mcmc_fine = RWRegCal(eye_prop=True)
+        # Option A selected: ensure standard variants have identical overall MCMC steps
+        len_chain_std = int(budget) + 1
         
-        model_coarse = IPModelInexactAdaptHD(
+        model_comp = IPModelInexactAdaptHD(
             prior=prior,
             data_noise_cov=cfg.problem.data_noise_var,
             data=observed_data
         )
         
-        move = TwoStageMCMC(
-            mcmc1=mcmc_coarse,
-            mcmc2=mcmc_fine,
+        # Move 1: Two-Stage Adaptive
+        class CustomTwoStageMCMC(TwoStageMCMC):
+            def calibrate(self, W, x):
+                super().calibrate(W, x)
+                original_target = self.coarse_target
+                def wrapped_target(x_aux):
+                    original_target(x_aux)
+                    if hasattr(x, "e_arr"):
+                        if hasattr(self.coarse_model, "last_e_eval") and self.coarse_model.last_e_eval is not None:
+                            x_aux.e_arr = self.coarse_model.last_e_eval
+                        else:
+                            x_aux.e_arr = np.zeros_like(x.e_arr)
+                self.coarse_target = wrapped_target
+
+        move_two_stage = CustomTwoStageMCMC(
+            mcmc1=NoisyMetropolisCal(),
+            mcmc2=RWRegCal(eye_prop=True),
             len_chain1=len_coarse_chain,
             len_chain2=len_fine_chain,
-            coarse_model=model_coarse,
+            coarse_model=model_comp, # coarse model is identical in this case
             fine_over_coarse=fine_over_coarse_nsamp
         )
         
+        # Move 2: Standard MCMC
+        from particles.smc_samplers import AdaptiveMCMCSequence
+        move_std = AdaptiveMCMCSequence(mcmc=RWRegCal(eye_prop=True), adaptive=False, len_chain=len_chain_std)
+        
         # 4. SMC runner function
-        def run_smc(model, nsamps_arr, sampler_class=TempNsampNoRew):
-            fk = sampler_class(model=model, wastefree=False, move=move, exponents=exponents, Nsamps=nsamps_arr)
+        def run_smc(model, nsamps_arr, move_kernel):
+            fk = TempNsampNoRew(model=model, wastefree=False, move=move_kernel, exponents=exponents, Nsamps=nsamps_arr)
             smc = SMC(fk=fk, N=n_particles, ESSrmin=1.0, verbose=False)
             smc.run()
             smc.setup_auxiliary_weights()
@@ -125,14 +143,12 @@ class FullTwoStageGaussianPriorDiscreteExperiment(GaussianPriorDiscreteExperimen
         # 5. Run the different versions of the problem
         results = {}
         
-        # Compact adapt and fixed
-        m_comp_adapt = IPModelInexactAdaptHD(prior=prior, data_noise_cov=cfg.problem.data_noise_var, data=observed_data)
-        results["compact_adapt"] = run_smc(m_comp_adapt, Nsamps_adapt)
-        results["compact_std"] = run_smc(m_comp_adapt, Nsamps_fixed)
-        
-        # Compact density
-        m_dens_adapt = IPModelInexactAdaptHDDensity(prior=prior, data_noise_cov=cfg.problem.data_noise_var, data=observed_data)
-        m_dens_adapt.evaluator = KernelRatioEvaluator(CompactModel)
-        results["density_adapt"] = run_smc(m_dens_adapt, Nsamps_adapt, sampler_class=DensityTempNsampNoRew)
+        # To reuse the parent class's plotting seamlessly, we map our keys to the original structure:
+        # compact_adapt -> Two Stage Adaptive
+        # compact_std -> Standard MCMC Adaptive
+        # density_adapt -> Standard MCMC Fixed
+        results["compact_adapt"] = run_smc(model_comp, Nsamps_adapt, move_two_stage)
+        results["compact_std"] = run_smc(model_comp, Nsamps_adapt, move_std)
+        results["density_adapt"] = run_smc(model_comp, Nsamps_fixed, move_std)
         
         return task_params["nmax_idx"], task_params["n_particles"], task_params["run_idx"], results
