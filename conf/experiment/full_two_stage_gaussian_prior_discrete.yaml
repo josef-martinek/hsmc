@@ -22,7 +22,7 @@ experiment:
   ref_sol:
     len_chain: 100
     N: 10000
-    n_steps: 10
+    ESSrmin: 0.9
   tempering_sampler:
     len_chain: 100
     ESSrmin: 0.9
