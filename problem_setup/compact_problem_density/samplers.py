@@ -36,5 +36,6 @@ class DensityTempNsampNoRew(TempNsampNoRew):
             
             # Apply exact density penalty
             dl += log_ratio
+            x.lpost += log_ratio
             
         return dl
