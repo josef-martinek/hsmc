@@ -15,6 +15,7 @@ class FullTwoStageGaussianPriorDiscreteExperiment(GaussianPriorDiscreteExperimen
     
     # Custom labels for the 3 SMC algorithm variants in the plots
     plot_labels = ["Two-Stage Adapt", "Std Adapt", "Std Fixed"]
+    plot_cost = False
     
     def setup(self, cfg):
         # We extract budget and percent_coarse to compute chain lengths

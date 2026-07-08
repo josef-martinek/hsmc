@@ -34,6 +34,9 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
 
     # Default labels for the 3 SMC algorithm variants in the plots
     plot_labels = ["Compact Adapt", "Compact Std", "Density Adapt"]
+    
+    # Toggle for generating cost plots
+    plot_cost = True
 
     def sample_ground_truth(self, problem_cfg, rng_truth):
         return rng_truth.uniform(problem_cfg.prior_a, problem_cfg.prior_b, size=self.param_dim)
@@ -395,34 +398,35 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
                     plt.close(fig1)
                     
                     # 2. Cost Plot
-                    fig2, ax2 = plt.subplots(1, 1, figsize=(8, 6))
-                    
-                    cost_a = self.cost_adapt[lc_idx, gns_idx]
-                    cost_f = self.cost_fixed[lc_idx, gns_idx]
+                    if self.plot_cost:
+                        fig2, ax2 = plt.subplots(1, 1, figsize=(8, 6))
                         
-                    ax2.plot(self.Nmax_seq, cost_a, marker='o', linestyle='-', color='black', linewidth=2.5, markersize=8, label='Adaptive')
-                    ax2.plot(self.Nmax_seq, cost_f, marker='s', linestyle='--', color='black', linewidth=2.5, markersize=8, label='Standard')
-                    
-                    anchor_nmax = self.Nmax_seq[-1]
-                    anchor_cost = cost_a[-1]
-                    slope_nmax = [anchor_cost * (n / anchor_nmax) for n in self.Nmax_seq]
-                    slope_tnmax = [anchor_cost * (n / anchor_nmax) * n_temp_steps for n in self.Nmax_seq]
-                    
-                    ax2.plot(self.Nmax_seq, slope_nmax, linestyle=':', color='black', linewidth=2, label=r'$\mathcal{O}(S_{max})$')
-                    ax2.plot(self.Nmax_seq, slope_tnmax, linestyle=':', color='black', linewidth=2, label=r'$\mathcal{O}(T \cdot S_{max})$')
-
-                    ax2.set_xscale('log'); ax2.set_yscale('log')
-                    ax2.set_xticks(self.Nmax_seq); ax2.get_xaxis().set_major_formatter(plt.ScalarFormatter())
-                    ax2.tick_params(axis='both', which='major', labelsize=16)
-                    ax2.set_xlabel('$S_{max}$', fontsize=20)
-                    ax2.set_ylabel('Cost per particle', fontsize=20)
-                    ax2.set_title(f'Cost per particle ({suffix})', fontsize=20)
-                    ax2.grid(True, which="both", linestyle="--", alpha=0.6)
-                    ax2.legend(fontsize=16)
-
-                    fig2.tight_layout()
-                    fig2.savefig(os.path.join(output_dir, f'cost_combined_{suffix}.pdf'))
-                    plt.close(fig2)
+                        cost_a = self.cost_adapt[lc_idx, gns_idx]
+                        cost_f = self.cost_fixed[lc_idx, gns_idx]
+                            
+                        ax2.plot(self.Nmax_seq, cost_a, marker='o', linestyle='-', color='black', linewidth=2.5, markersize=8, label='Adaptive')
+                        ax2.plot(self.Nmax_seq, cost_f, marker='s', linestyle='--', color='black', linewidth=2.5, markersize=8, label='Standard')
+                        
+                        anchor_nmax = self.Nmax_seq[-1]
+                        anchor_cost = cost_a[-1]
+                        slope_nmax = [anchor_cost * (n / anchor_nmax) for n in self.Nmax_seq]
+                        slope_tnmax = [anchor_cost * (n / anchor_nmax) * n_temp_steps for n in self.Nmax_seq]
+                        
+                        ax2.plot(self.Nmax_seq, slope_nmax, linestyle=':', color='black', linewidth=2, label=r'$\mathcal{O}(S_{max})$')
+                        ax2.plot(self.Nmax_seq, slope_tnmax, linestyle=':', color='black', linewidth=2, label=r'$\mathcal{O}(T \cdot S_{max})$')
+    
+                        ax2.set_xscale('log'); ax2.set_yscale('log')
+                        ax2.set_xticks(self.Nmax_seq); ax2.get_xaxis().set_major_formatter(plt.ScalarFormatter())
+                        ax2.tick_params(axis='both', which='major', labelsize=16)
+                        ax2.set_xlabel('$S_{max}$', fontsize=20)
+                        ax2.set_ylabel('Cost per particle', fontsize=20)
+                        ax2.set_title(f'Cost per particle ({suffix})', fontsize=20)
+                        ax2.grid(True, which="both", linestyle="--", alpha=0.6)
+                        ax2.legend(fontsize=16)
+    
+                        fig2.tight_layout()
+                        fig2.savefig(os.path.join(output_dir, f'cost_combined_{suffix}.pdf'))
+                        plt.close(fig2)
                         
                 # 3. Write Stats Summary block
                 for prob, method, key in [
