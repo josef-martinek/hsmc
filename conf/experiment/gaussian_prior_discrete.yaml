@@ -17,8 +17,6 @@ experiment:
   runner:
     _target_: experiments.gaussian_prior_discrete.GaussianPriorDiscreteExperiment
   ref_sol:
-    len_chain: 100
-    n_steps: 10
     N: 10000
   tempering_sampler:
     len_chain: 100

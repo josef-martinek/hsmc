@@ -16,8 +16,6 @@ experiment:
   runner:
     _target_: experiments.complex_compact_gaussian_prior_smc.ComplexCompactGaussianPriorSMCExperiment
   ref_sol:
-    len_chain: 100
-    ESSrmin: 0.9
     N: 10000
 
   sweep:

@@ -17,8 +17,6 @@ experiment:
   runner:
     _target_: experiments.two_stage_gaussian_prior_discrete.TwoStageGaussianPriorDiscreteExperiment
   ref_sol:
-    len_chain: 2
-    ESSrmin: 0.4
     N: 10
   tempering_sampler:
     len_chain: 2
