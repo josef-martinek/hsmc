@@ -71,20 +71,19 @@ class TwoStageGaussianPriorDiscreteExperiment(ComplexCompactGaussianPriorSMCExpe
         print(f"Target exponent e1: {self.e1}")
         
         ref_sol_cfg = cfg.experiment.ref_sol
-        print(f"Computing exact reference samples at e1 using {ref_sol_cfg.n_steps} intermediate steps...")
-        # Construct geometrically increasing sequence of exponents ending at self.e1
-        ref_exponents = np.geomspace(1e-4, self.e1, num=ref_sol_cfg.n_steps).tolist()
-        # Ensure the last exponent is exactly self.e1
-        ref_exponents[-1] = self.e1
+        print(f"Computing exact reference samples at e1 using closed-form tempered posterior...")
         
-        mcmc_ref = RWRegCal()
-        move_ref = ssp.AdaptiveMCMCSequence(mcmc=mcmc_ref, adaptive=False, len_chain=ref_sol_cfg.len_chain)
-        fk_ref = ssp.Tempering(model=model_ex, wastefree=False, exponents=ref_exponents, move=move_ref)
-        alg_ref = SMC(fk=fk_ref, N=ref_sol_cfg.N, ESSrmin=1., verbose=True)
-        alg_ref.run()
-        alg_ref.setup_auxiliary_weights()
-        alg_ref.resample_move()
-        post_samp_ref_exact = alg_ref.X.theta['param']
+        from utils.exact_gaussian_posterior import get_exact_gaussian_posterior_samples
+        post_samp_ref_exact = get_exact_gaussian_posterior_samples(
+            A=CompactModel.exact_fw_operator,
+            b=np.zeros(problem_cfg.m),
+            y=observed_data.flatten(),
+            mu_0=problem_cfg.prior_mu * np.ones(problem_cfg.param_dim),
+            Sigma_0=(problem_cfg.prior_sigma ** 2) * np.eye(problem_cfg.param_dim),
+            sigma_noise_sq=problem_cfg.data_noise_var,
+            N=ref_sol_cfg.N,
+            gamma=self.e1
+        )
         print("Reference samples at e1 computed.")
         
         self.prior_ref = ray.put(prior)

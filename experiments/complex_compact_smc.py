@@ -82,17 +82,10 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         print("Computing exact reference solutions...")
         model_ex = IPModelExactHD(prior=prior, data_noise_cov=problem_cfg.data_noise_var, data=observed_data)
         
-        ref_sol_cfg = cfg.experiment.ref_sol
-        ref_len_chain = ref_sol_cfg.len_chain
-        ref_ESSrmin = ref_sol_cfg.ESSrmin
-        ref_N = ref_sol_cfg.N
-        
         # Seed global numpy for reproducible reference solution MCMC
         np.random.seed(problem_cfg.ground_truth_seed)
         
-        post_samp_ref_exact = get_ref_sols(
-            model_ex, len_chain=ref_len_chain, ESSrmin=ref_ESSrmin, N=ref_N
-        )
+        post_samp_ref_exact = self.compute_reference_solution(model_ex, observed_data, cfg, problem_cfg)
         print("Reference solutions computed.")
         
         if "tempering_sampler" in cfg.experiment:
@@ -158,6 +151,16 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
                         if nsamp_sched[t] > nsamp_sched[t-1]:
                             c_adapt += nsamp_sched[t]
                     self.cost_adapt[lc_idx, gns_idx, nmax_idx] = c_adapt
+        
+        # Initialize lists for task data collection
+        self.setups = []
+        self.W_ex_by_setup = []
+        
+    def compute_reference_solution(self, model_ex, observed_data, cfg, problem_cfg):
+        ref_sol_cfg = cfg.experiment.ref_sol
+        return get_ref_sols(
+            model_ex, len_chain=ref_sol_cfg.len_chain, ESSrmin=ref_sol_cfg.ESSrmin, N=ref_sol_cfg.N
+        )
 
     def generate_tasks(self, cfg):
         cfg_dict = OmegaConf.to_container(cfg, resolve=True)
