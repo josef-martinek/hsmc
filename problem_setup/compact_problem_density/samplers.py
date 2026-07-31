@@ -10,7 +10,7 @@ class DensityTempNsampNoRew(TempNsampNoRew):
     def current_target(self, epn):
         def func(x):
             x.lprior = self.model.prior.logpdf(x.theta)
-            x.llik = self.model.loglik(x.theta, self.solver_nsamp[-1])
+            x.llik = self.model.loglik(x.theta, self.solver_nsamp_last[-1])
             
             # Fetch the generated 'e' from the model and attach it to the particles
             x.e_arr = self.model.last_e_eval
