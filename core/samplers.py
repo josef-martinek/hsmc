@@ -7,11 +7,12 @@ class TempAdaptNsampNoRew(AdaptiveTempering):
     Adaptive Tempering SMC sampler with adaptive solver sample size (no reweighting).
     """
 
-    def __init__(self, Nmin, ar_tol, model=None, wastefree=False, len_chain=10, move=None, ESSrmin=0.5, max_iter=1000):
+    def __init__(self, Nmin, ar_tol, model=None, wastefree=False, len_chain=10, move=None, ESSrmin=0.5, max_iter=1000, growth_factor=2):
         super().__init__(model, wastefree, len_chain, move, ESSrmin, max_iter)
         self.Nmin = Nmin
         self.ar_tol = ar_tol
         self.solver_nsamp = [self.Nmin]
+        self.growth_factor = growth_factor
 
     def _M0(self, N):
         x0 = ThetaParticles(theta=self.model.prior.rvs(size=N))
@@ -32,8 +33,8 @@ class TempAdaptNsampNoRew(AdaptiveTempering):
             mean_ar = 1.0
         if mean_ar < self.ar_tol:
             last_nsamp = self.solver_nsamp[-1]
-            self.solver_nsamp.append(last_nsamp*2)
-            x.shared["solver_nsamp"].append(last_nsamp*2)
+            self.solver_nsamp.append(last_nsamp*self.growth_factor)
+            x.shared["solver_nsamp"].append(last_nsamp*self.growth_factor)
         else:
             last_nsamp = self.solver_nsamp[-1]
             self.solver_nsamp.append(last_nsamp)
