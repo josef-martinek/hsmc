@@ -7,9 +7,12 @@ class TempAdaptNsampNoRew(AdaptiveTempering):
     Adaptive Tempering SMC sampler with adaptive solver sample size (no reweighting).
     """
 
-    def __init__(self, Nmin, ar_tol, model=None, wastefree=False, len_chain=10, move=None, ESSrmin=0.5, max_iter=1000, growth_factor=2):
+    def __init__(self, Nmin, ar_tol, model=None, wastefree=False, len_chain=10, move=None, ESSrmin=0.5, max_iter=1000, growth_factor=2, Nmax=None):
+        if Nmax is not None and Nmax < Nmin:
+            raise ValueError("Nmax must be greater than or equal to Nmin")
         super().__init__(model, wastefree, len_chain, move, ESSrmin, max_iter)
         self.Nmin = Nmin
+        self.Nmax = Nmax
         self.ar_tol = ar_tol
         self.solver_nsamp = [self.Nmin]
         self.growth_factor = growth_factor
@@ -31,14 +34,14 @@ class TempAdaptNsampNoRew(AdaptiveTempering):
             mean_ar = np.mean(x.shared["acc_rates"][-1])
         except (KeyError, IndexError):
             mean_ar = 1.0
-        if mean_ar < self.ar_tol:
-            last_nsamp = self.solver_nsamp[-1]
-            self.solver_nsamp.append(last_nsamp*self.growth_factor)
-            x.shared["solver_nsamp"].append(last_nsamp*self.growth_factor)
-        else:
-            last_nsamp = self.solver_nsamp[-1]
-            self.solver_nsamp.append(last_nsamp)
-            x.shared["solver_nsamp"].append(last_nsamp)
+        last_nsamp = self.solver_nsamp[-1]
+        proposed_nsamp = last_nsamp * self.growth_factor
+        should_increase = mean_ar < self.ar_tol and (
+            self.Nmax is None or proposed_nsamp <= self.Nmax
+        )
+        next_nsamp = proposed_nsamp if should_increase else last_nsamp
+        self.solver_nsamp.append(next_nsamp)
+        x.shared["solver_nsamp"].append(next_nsamp)
 
         return self.logG_tempering(x, new_epn - epn)
     
