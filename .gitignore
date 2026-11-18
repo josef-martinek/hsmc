@@ -172,3 +172,6 @@ slurm*
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 lpost_log_ratio_analysis.md
+
+# Release: generated figures
+plotting/output/

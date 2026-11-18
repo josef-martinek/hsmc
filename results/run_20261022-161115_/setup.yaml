@@ -1,0 +1,39 @@
+# @package _global_
+
+problem:
+  m: 64
+  data_noise_var: 0.00625
+  truncation_radius_R: 1.0
+  base_variance: 0.1
+  param_dim: 64
+  ground_truth_seed: 42
+  prior_mu: 0.0
+  prior_sigma: 1.0
+  fine_over_coarse_nsamp: 20.0
+experiment:
+  Nmax: 16
+  len_c: 100
+  nsamp_min: 0.125
+  scheduler_params:
+    shape_p: 0.5
+  runner:
+    _target_: experiments.fixed_coarse_budget_sweep.FixedCoarseBudgetSweepExperiment
+  ref_sol:
+    'N': 10000
+  tempering_sampler:
+    len_chain: 1000
+    ESSrmin: 0.4
+    'N': 1000
+  sweep:
+    n_runs: 400
+    budget_seq:
+    - 80.0
+    - 160.0
+    - 320.0
+    - 640.0
+    - 1280.0
+    n_particles_seq:
+    - 100
+    - 800
+    gamma_nsamp_seq:
+    - 2.0

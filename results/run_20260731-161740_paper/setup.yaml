@@ -1,0 +1,45 @@
+# @package _global_
+
+problem:
+  m: 8
+  data_noise_var: 0.05
+  truncation_radius_R: 1.0
+  base_variance: 0.1
+  param_dim: 8
+  ground_truth_seed: 42
+  prior_mu: 0.0
+  prior_sigma: 1.0
+experiment:
+  nsamp_min: 0.125
+  scheduler_params:
+    shape_p: 0.5
+  runner:
+    _target_: experiments.gaussian_prior_discrete.GaussianPriorDiscreteExperiment
+  ref_sol:
+    len_chain: 100
+    ESSrmin: 0.9
+    'N': 10000
+  tempering_sampler:
+    len_chain: 100
+    ESSrmin: 0.8
+    'N': 1000
+  sweep:
+    n_runs: 100
+    Nmax_seq:
+    - 2
+    - 4
+    - 8
+    - 16
+    - 32
+    - 64
+    - 128
+    n_particles_seq:
+    - 50
+    - 100
+    - 200
+    - 400
+    - 800
+    len_chain_seq:
+    - 16
+    gamma_nsamp_seq:
+    - 2.0
