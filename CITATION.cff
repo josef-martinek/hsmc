@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the paper given under preferred-citation."
+title: hsmc
+type: software
+version: 1.0.0
+license: MIT
+repository-code: "https://github.com/josef-martinek/hsmc"
+abstract: >-
+  Code and data for Section 6.1 ("A linear problem") of the paper
+  "Reducing Complexity of Pseudo-Marginal Sequential Monte Carlo via
+  Hierarchical Tempering", and the hierarchical SMC sampler package hsmc.
+authors:
+  - family-names: Martínek
+    given-names: Josef
+preferred-citation:
+  type: unpublished
+  title: "Reducing Complexity of Pseudo-Marginal Sequential Monte Carlo via Hierarchical Tempering"
+  authors:
+    - family-names: Martínek
+      given-names: Josef
+    - family-names: Hofstadler
+      given-names: Julian
+    - family-names: Cox
+      given-names: Alexander M. G.
+    - family-names: Scheichl
+      given-names: Robert
