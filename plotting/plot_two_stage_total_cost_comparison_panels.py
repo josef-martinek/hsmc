@@ -20,6 +20,10 @@ The cap-100 and cap-1000 panels for the same T have identical x/y limits.
 Limits differ between T values. Source archives and original plots are
 unchanged. T=24/T=37 use the July archives in the original paper figures;
 T=50 uses the October 22 archives in the updated paper figure.
+
+The panels are checked against two_stage_total_cost_comparison_T{24,37,50}.pdf,
+read from the output directory: run plot_two_stage_total_cost_comparison.py
+(T24, T37) and plot_two_stage_total_cost_comparison_T50.py (T50) first.
 """
 
 from __future__ import annotations
@@ -116,10 +120,10 @@ def source_pdf_geometry(path: Path):
     return boxes, np.array(xticks), np.array(yticks), curves, np.array(bars)
 
 
-def verify_source_pdfs(runs, rows):
+def verify_source_pdfs(runs, rows, source_dir: Path):
     """Verify every displayed mean, cost, and CI against the existing PDFs."""
     for stages in STAGES:
-        path = SOURCE_DIR / f"two_stage_total_cost_comparison_T{stages}.pdf"
+        path = source_dir / f"two_stage_total_cost_comparison_T{stages}.pdf"
         boxes, xticks, yticks, curves, bars = source_pdf_geometry(path)
         multiplier = 1e8 if stages == 50 else 1e6
         xfit = np.polyfit(np.log10(xticks[:, 0] * multiplier), xticks[:, 1], 1)
@@ -281,17 +285,27 @@ def main():
     parser.add_argument("--data-dir", type=Path, default=ROOT / "results")
     parser.add_argument("--output-dir", type=Path, default=SOURCE_DIR / "output")
     args = parser.parse_args()
+    # The source PDFs are outputs of the two scripts below, in the same output directory.
+    source_pdfs = [args.output_dir / f"two_stage_total_cost_comparison_T{t}.pdf" for t in STAGES]
+    missing = [str(path) for path in source_pdfs if not path.is_file()]
+    if missing:
+        raise SystemExit(
+            "Missing source PDF(s): " + ", ".join(missing) + "\n"
+            "Run plotting/plot_two_stage_total_cost_comparison.py (writes T24, T37) and "
+            "plotting/plot_two_stage_total_cost_comparison_T50.py (writes T50) first, "
+            "with the same --output-dir.")
     # Protect every existing original plot and script while allowing repeat runs.
     output_names = {f"two_stage_total_cost_comparison_T{t}_cap{c}.pdf" for t in STAGES for c in CAPS}
     output_names.update(f"two_stage_total_cost_comparison_{part}.pdf"
                         for part in ("header", "xlabel", "ylabel"))
     protected = {path: hashlib.sha256(path.read_bytes()).digest() for path in SOURCE_DIR.iterdir()
                  if path.suffix in (".py", ".pdf") and path.name not in output_names}
+    protected.update({path: hashlib.sha256(path.read_bytes()).digest() for path in source_pdfs})
     args.output_dir.mkdir(parents=True, exist_ok=True)
     with plt.rc_context({"font.family": "DejaVu Sans", "pdf.fonttype": 42,
                          "axes.formatter.useoffset": False}):
         runs, rows = load_sources(args.data_dir)
-        verify_source_pdfs(runs, rows)
+        verify_source_pdfs(runs, rows, args.output_dir)
         for stages in STAGES:
             pair_rows = [row for row in rows if row["stages"] == stages]
             limits = reference.common_limits(pair_rows)

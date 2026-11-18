@@ -175,3 +175,7 @@ lpost_log_ratio_analysis.md
 
 # Release: generated figures
 plotting/output/
+# Release: reference data of tests/test_mcmc.py
+!tests/data/
+tests/data/*
+!tests/data/mcmc_ref.npz

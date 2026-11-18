@@ -1,4 +1,4 @@
-name: pivo
+name: hsmc
 channels:
   - defaults
   - conda-forge
