@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Plot archived two-stage errors against reconstructed total solver cost.
 
-Run with the pivo environment. Only the new total-cost PDFs and CSV are written.
-See two_stage_total_cost_derivation.md for the accounting and paper wording.
+Run with the hsmc environment. Only the new total-cost PDFs and CSV are written.
 """
 
 from __future__ import annotations

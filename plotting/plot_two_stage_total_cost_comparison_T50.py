@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Reproduce the two-panel T=50 paper figure from the October 22 archives.
 
-Run with the pivo environment, for example from the repository root:
+Run with the hsmc environment, for example from the repository root:
 
     MPLBACKEND=Agg python -B plotting/plot_two_stage_total_cost_comparison_T50.py
 

@@ -6,7 +6,7 @@ Code and data for Section 6.1 ("A linear problem") of the paper
 > *Reducing Complexity of Pseudo-Marginal Sequential Monte Carlo via
 > Hierarchical Tempering.*
 
-Paper link / DOI: **[PLACEHOLDER: to be added]**
+Paper: [arXiv:2610.37082](https://arxiv.org/abs/2610.37082)
 
 The repository also provides the Python package `hsmc` (hierarchical SMC
 samplers and MCMC kernels), which is used by the companion repository
@@ -175,4 +175,4 @@ MIT License, see `LICENSE`.
 If you use this code, please cite the paper above. A citation file for the
 software is in `CITATION.cff`.
 
-Software DOI (Zenodo): **[PLACEHOLDER: to be added]**
+Release v1.0.0 of this repository is archived on Zenodo.

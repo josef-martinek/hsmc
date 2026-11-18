@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate six vector panels, one legend header, and two shared axis titles.
 
-Run from the repository root with the pivo environment:
+Run from the repository root with the hsmc environment:
 
     MPLBACKEND=Agg python -B plotting/plot_two_stage_total_cost_comparison_panels.py
 

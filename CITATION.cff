@@ -24,3 +24,9 @@ preferred-citation:
       given-names: Alexander M. G.
     - family-names: Scheichl
       given-names: Robert
+  year: 2026
+  url: "https://arxiv.org/abs/2610.37082"
+  identifiers:
+    - type: other
+      value: "arXiv:2610.37082"
+      description: arXiv preprint

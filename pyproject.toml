@@ -8,7 +8,7 @@ version = "1.0.0"
 description = "Hierarchical sequential Monte Carlo samplers for Bayesian inverse problems with stochastic forward solvers"
 license = "MIT"
 license-files = ["LICENSE"]
-authors = [{ name = "Josef Martinek" }]
+authors = [{ name = "Josef Martínek" }]
 requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.18",
