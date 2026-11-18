@@ -20,7 +20,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_DATA_DIR = SCRIPT_DIR.parent / "results"
 RUN_DIRECTORIES = {
     8: "run_20260731-161740_paper",
-    64: "run_20260731-153234_weird",
+    64: "run_20260731-153234_paper",
 }
 SOLVER_ACCURACY_SCALE = 80
 X_TICK_FACTOR = 160

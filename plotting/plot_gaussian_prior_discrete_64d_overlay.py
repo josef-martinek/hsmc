@@ -19,7 +19,7 @@ import numpy as np
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPOSITORY_DIR = SCRIPT_DIR.parent
-DEFAULT_RESULTS = REPOSITORY_DIR / "results" / "run_20260731-153234_weird" / "smc_results.npz"
+DEFAULT_RESULTS = REPOSITORY_DIR / "results" / "run_20260731-153234_paper" / "smc_results.npz"
 
 Z_VALUE_95_PERCENT = 1.96
 DISPLAY_MIN_SMAX = 8  # Apply the original cutoff before scaling.
