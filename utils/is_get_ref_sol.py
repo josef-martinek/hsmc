@@ -1,7 +1,7 @@
 import numpy as np
 from particles import smc_samplers as ssp
 from particles.core import SMC
-import core.mcmc as MCMC
+import hsmc.mcmc as MCMC
 
 def get_ref_sols(model_ex, len_chain=100, ESSrmin=0.9, N=1000, return_exponents=False):
     mcmc = MCMC.RWRegCal()

@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 from particles import distributions as dists
 from particles.smc_samplers import MCMCSequenceWF, ThetaParticles, Tempering
-from core.mcmc import RWUnc, NoisyMetropolisUnc, RWRegCal, NoisyMetropolisCal, TwoStageMCMC
+from hsmc.mcmc import RWUnc, NoisyMetropolisUnc, RWRegCal, NoisyMetropolisCal, TwoStageMCMC
 import importlib
 
 def run_mcmc_test():

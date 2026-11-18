@@ -1,4 +1,4 @@
-from problem_setup.likelihood_base import IPModelHD
+from hsmc.likelihood_base import IPModelHD
 import numpy as np
 
 

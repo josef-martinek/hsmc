@@ -32,8 +32,8 @@ def run_smc_problem(problem_name, model_exact_class, param_dim, prior_marg_var, 
     model = IPModelInexactAdaptHD(prior=prior, data_noise_cov=data_noise_var, data=observed_data)
     
     # Simple Random Walk Adaptive Tempering using TempAdaptNsampNoRew
-    import core.mcmc as MCMC
-    from core.samplers import TempAdaptNsampNoRew
+    import hsmc.mcmc as MCMC
+    from hsmc.samplers import TempAdaptNsampNoRew
     mcmc = MCMC.RWRegCal()
     move = ssp.AdaptiveMCMCSequence(mcmc=mcmc, adaptive=False, len_chain=len_chain)
     

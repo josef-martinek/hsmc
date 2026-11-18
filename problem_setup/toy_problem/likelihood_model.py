@@ -1,6 +1,6 @@
 import numpy as np
 from particles import smc_samplers as ssp
-from problem_setup.likelihood_base import IPModel1D, IPModelHD
+from hsmc.likelihood_base import IPModel1D, IPModelHD
 import logging
 class MatVecModel:
     data_dim = 10

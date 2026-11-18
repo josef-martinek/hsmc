@@ -7,10 +7,10 @@ from omegaconf import OmegaConf
 
 from particles.core import SMC
 from particles.smc_samplers import AdaptiveMCMCSequence
-from core.samplers import TempNsampNoRew
+from hsmc.samplers import TempNsampNoRew
 
 from problem_setup.compact_problem.likelihood_model import IPModelInexactAdaptHD, CompactModel
-from core.mcmc import NoisyMetropolisCal, RWRegCal, TwoStageMCMC
+from hsmc.mcmc import NoisyMetropolisCal, RWRegCal, TwoStageMCMC
 
 from experiments.gaussian_prior_discrete import GaussianPriorDiscreteExperiment
 

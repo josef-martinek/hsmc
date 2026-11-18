@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.stats import chi
-from problem_setup.likelihood_base import IPModel1D, IPModelHD
+from hsmc.likelihood_base import IPModel1D, IPModelHD
 
 from problem_setup.compact_problem.problem_parameters import SamplerConfig
 

@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hsmc"
+version = "1.0.0"
+description = "Hierarchical sequential Monte Carlo samplers for Bayesian inverse problems with stochastic forward solvers"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Josef Martinek" }]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.18",
+    "scipy>=1.7",
+    "particles @ git+https://github.com/nchopin/particles.git@8f2c4bfa85cc7a287c0fd36b13710bfe4bd41856",
+]
+
+[tool.setuptools]
+packages = ["hsmc"]

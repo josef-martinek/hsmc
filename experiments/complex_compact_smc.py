@@ -18,8 +18,8 @@ from problem_setup.compact_problem.likelihood_model import IPModelInexactAdaptHD
 from problem_setup.compact_problem_density.likelihood_model import IPModelInexactAdaptHDDensity, IPModelInexactFixHDDensity
 
 # Samplers and MCMC
-from core.samplers import TempNsampNoRew
-from core.mcmc import RWRegCal
+from hsmc.samplers import TempNsampNoRew
+from hsmc.mcmc import RWRegCal
 
 
 class ComplexCompactSMCExperiment(ExperimentRunner):
@@ -211,7 +211,7 @@ class ComplexCompactSMCExperiment(ExperimentRunner):
         from omegaconf import OmegaConf
         from particles.smc_samplers import AdaptiveMCMCSequence
         from particles.core import SMC
-        from core.mcmc import RWRegCal
+        from hsmc.mcmc import RWRegCal
         from particles import distributions as dists
         
         from problem_setup.compact_problem.likelihood_model import IPModelInexactAdaptHD, IPModelInexactFixHD, CompactModel

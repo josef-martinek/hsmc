@@ -1,4 +1,4 @@
-from core.samplers import TempNsampNoRew
+from hsmc.samplers import TempNsampNoRew
 
 class DensityTempNsampNoRew(TempNsampNoRew):
     """
