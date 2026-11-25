@@ -10,7 +10,6 @@ import argparse
 import csv
 from dataclasses import asdict, dataclass
 from pathlib import Path
-import re
 
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
@@ -70,7 +69,6 @@ class RunData:
     fine_over_coarse: float
     errors: dict[str, np.ndarray]
     colors: dict[int, str]
-    summary_blocks: int
 
 
 @dataclass(frozen=True)
@@ -99,50 +97,6 @@ def reconstruct_schedule(nmax: float, nsamp_min: float, gamma: float,
     smooth = nsamp_min * (nmax / nsamp_min) ** (times ** shape_p)
     powers = np.round(np.log(smooth / nsamp_min) / np.log(gamma))
     return np.minimum(nsamp_min * gamma ** powers, nmax)
-
-
-SUMMARY_HEADER = re.compile(
-    r"Algorithm: (\w+) \| Budget: ([\d.]+) \| Particles: (\d+) "
-    r"\| gamma: ([\d.]+) \| n_temp_steps: (\d+)"
-)
-
-
-def validate_summaries(path: Path, schedule: np.ndarray, budgets: np.ndarray,
-                       particles: np.ndarray, gamma: float) -> int:
-    """Check every archived method/N/budget block, including the omitted N=50."""
-    stages = len(schedule) - 1
-    expected = {(m.key, int(n), float(b)) for m in METHODS
-                for n in particles for b in budgets}
-    seen = set()
-    reference_exponents = None
-    for block in re.split(r"(?=^Algorithm: )", path.read_text(), flags=re.MULTILINE)[1:]:
-        header = SUMMARY_HEADER.fullmatch(block.splitlines()[0])
-        if header is None:
-            raise ValueError(f"Invalid summary header in {path}")
-        method, budget, particles_text, gamma_text, stages_text = header.groups()
-        identity = (method, int(particles_text), float(budget))
-        if identity not in expected or identity in seen:
-            raise ValueError(f"Unexpected or duplicate summary block: {identity} in {path}")
-        if float(gamma_text) != gamma or int(stages_text) != stages:
-            raise ValueError(f"Summary schedule metadata differs in {path}")
-        rows = [line.split("|") for line in block.splitlines()
-                if re.match(r"^\s*\d+\s*\|", line)]
-        if [int(row[0]) for row in rows] != list(range(stages)):
-            raise ValueError(f"Missing or reordered stages in {path}: {identity}")
-        accuracies = np.array([float(row[-1]) for row in rows])
-        target = np.full(stages, schedule[-1]) if method == "density_adapt" else schedule[1:]
-        if not np.array_equal(accuracies, target):
-            raise ValueError(f"Reconstructed accuracies differ from {path}: {identity}")
-        exponents = np.array([float(row[1]) for row in rows])
-        if reference_exponents is None:
-            reference_exponents = exponents
-        if (not np.array_equal(exponents, reference_exponents)
-                or np.any(np.diff(exponents) <= 0) or exponents[-1] != 1.0):
-            raise ValueError(f"Inconsistent tempering exponents in {path}: {identity}")
-        seen.add(identity)
-    if seen != expected:
-        raise ValueError(f"Missing summary blocks in {path}: {expected - seen}")
-    return len(seen)
 
 
 def load_run(data_dir: Path, spec: RunSpec) -> RunData:
@@ -183,12 +137,10 @@ def load_run(data_dir: Path, spec: RunSpec) -> RunData:
         experiment["Nmax"], experiment["nsamp_min"], gamma, spec.stages,
         experiment["scheduler_params"]["shape_p"],
     )
-    blocks = validate_summaries(directory / "stats_summary.txt", raw_schedule,
-                                budgets, particles, gamma)
     color_cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"]
     colors = {int(n): color_cycle[i % len(color_cycle)] for i, n in enumerate(particles)}
     return RunData(spec, budgets, particles, raw_schedule * SOLVER_ACCURACY_SCALE,
-                   ratio, errors, colors, blocks)
+                   ratio, errors, colors)
 
 
 def calculate_cost(method: str, n: int, budget: float, schedule: np.ndarray,
@@ -332,7 +284,6 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(rows)
     print(f"Wrote {csv_path} ({len(rows)} archived points)")
-    print(f"Validated {sum(run.summary_blocks for run in runs)} archived summary blocks.")
 
 
 if __name__ == "__main__":

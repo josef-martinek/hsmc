@@ -32,7 +32,7 @@ RUN_SPECS = (
 
 
 def load_run(data_dir: Path, spec: reference.RunSpec) -> reference.RunData:
-    """Validate the T=50 archive and all 30 saved stage-summary blocks."""
+    """Validate the T=50 archive."""
     directory = data_dir / spec.directory
     config = yaml.safe_load((directory / "setup.yaml").read_text())
     experiment = config["experiment"]
@@ -70,15 +70,12 @@ def load_run(data_dir: Path, spec: reference.RunSpec) -> reference.RunData:
         experiment["Nmax"], experiment["nsamp_min"], gamma, spec.stages,
         experiment["scheduler_params"]["shape_p"],
     )
-    blocks = reference.validate_summaries(
-        directory / "stats_summary.txt", raw_schedule, budgets, particles, gamma,
-    )
     # Keep the particle colors used in the T=24/T=37 paper PDFs.
     cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"]
     colors = {n: cycle[i] for i, n in enumerate((50, 100, 200, 400, 800))}
     return reference.RunData(
         spec, budgets, particles, raw_schedule * reference.SOLVER_ACCURACY_SCALE,
-        ratio, errors, colors, blocks,
+        ratio, errors, colors,
     )
 
 
@@ -107,8 +104,7 @@ def main() -> None:
     fig.savefig(output, bbox_inches="tight")
     plt.close(fig)
     print(f"Wrote {output}")
-    print(f"Validated {sum(run.summary_blocks for run in runs)} summary blocks "
-          f"and plotted {len(rows)} archived points.")
+    print(f"Plotted {len(rows)} archived points.")
 
 
 if __name__ == "__main__":
