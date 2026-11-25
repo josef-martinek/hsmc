@@ -69,8 +69,7 @@ where `<name>` is one of the configurations below.
 | `two_stage_ess040_cap1000` | `run_20261022-161132_` | d = 64, ESSrmin 0.4 (T = 50), cheap-chain cap 1000, 400 runs |
 
 Solver accuracies in the configurations and result files are in internal
-units; the plotting scripts rescales them by factor 80 to obtain the accuracies used
-in the paper.
+units; the plotting scripts rescales them by factor 80 for readability in the paper.
 
 New output goes to a new folder `data/run_<YYYYMMDD-HHMMSS>_/` (option
 `results_base_dir=<dir>`). To plot a new run with the scripts above, give its
